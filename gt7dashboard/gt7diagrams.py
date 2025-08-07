@@ -1,4 +1,6 @@
+
 from typing import List
+from datetime import datetime
 
 import bokeh
 from bokeh.layouts import layout
@@ -171,6 +173,7 @@ class RaceDiagram(object):
         self.gears_lines = []
         self.boost_lines = []
         self.yaw_rate_lines = []
+        self.braking_throttle_lines = []
 
         # Data Sources
         self.source_time_diff = None
@@ -178,6 +181,7 @@ class RaceDiagram(object):
         self.source_last_lap = None
         self.source_reference_lap = None
         self.source_median_lap = None
+        self.source_braking_throttle = None
         self.sources_additional_laps = []
 
         self.additional_laps = List[Lap]
@@ -259,6 +263,16 @@ class RaceDiagram(object):
             tooltips=tooltips,
             active_drag="box_zoom",
         )
+
+        self.f_braking_throttle = figure(
+            x_axis_type="datetime",
+            y_axis_label="Braking / Throttle",
+            sizing_mode="stretch_both",
+            tooltips=tooltips,
+            active_drag="box_zoom",
+            y_range=Range1d(0, 100),
+        )
+        # self.f_braking_throttle.sizing_mode = "scale_width"
 
         self.f_coasting = figure(
             x_range=self.f_speed.x_range,
@@ -370,6 +384,11 @@ class RaceDiagram(object):
 
         self.source_median_lap = self.add_lap_to_race_diagram("green", "Median Lap", False)
 
+        self.source_braking_throttle = ColumnDataSource(data={
+            "DateTime": [],
+            "Brake": [],
+            "Throttle": []})
+
         self.f_speed.legend.click_policy = "hide"
         self.f_throttle.legend.click_policy = self.f_speed.legend.click_policy
         self.f_braking.legend.click_policy = self.f_speed.legend.click_policy
@@ -408,6 +427,30 @@ class RaceDiagram(object):
             visible=True
         )
 
+        self.braking_throttle_lines.append(
+            self.f_braking_throttle.line(
+                x="DateTime",
+                y="Brake",
+                source=self.source_braking_throttle,
+                line_width=2,
+                color="red",
+                line_alpha=1,
+                legend_label="Braking",
+            ))
+        self.braking_throttle_lines.append(
+            self.f_braking_throttle.line(
+                x="DateTime",
+                y="Throttle",
+                source=self.source_braking_throttle,
+                line_width=2,
+                color="green",
+                line_alpha=1,
+                legend_label="Throttle",
+            )
+        )
+
+        
+
     def add_additional_lap_to_race_diagram(self, color: str, lap: Lap, visible: bool = True):
         source = self.add_lap_to_race_diagram(color, lap.title, visible)
         source.data = lap.get_data_dict()
@@ -418,6 +461,16 @@ class RaceDiagram(object):
         variance, fastest_laps = gt7helper.get_variance_for_fastest_laps(laps)
         self.source_speed_variance.data = variance
         return fastest_laps
+    
+    def add_braking_throttle_data(self, braking_throttle_data: dict):
+        """
+        Adds the braking and throttle data to the diagram.
+        :param braking_throttle_data: List of dicts with keys 'DateTime', 'Brake' and 'Throttle'
+        """
+        if len(braking_throttle_data) == 0:
+            return
+        new_row = {"DateTime": [datetime.now()], "Brake": [braking_throttle_data["braking"]], "Throttle": [braking_throttle_data["throttle"]]}
+        self.source_braking_throttle.stream(new_row, 1200)
 
     def add_lap_to_race_diagram(self, color: str, legend: str, visible: bool = True):
 
