@@ -3,6 +3,7 @@ import itertools
 import logging
 import os
 import time
+import threading
 from typing import List
 
 import bokeh.application
@@ -175,6 +176,23 @@ def update_lap_change():
     g_laps_stored = laps.copy()
     g_telemetry_update_needed = False
 
+def update_braking_and_throttle():
+    """
+    This function updates the braking and throttle diagram.
+    """ 
+    last_data = app.gt7comm.get_last_data()
+    if last_data is None:   
+        return
+    braking_throttle_data = {
+        "braking": last_data.brake,
+        "throttle": last_data.throttle,
+    }
+    race_diagram.add_braking_throttle_data(braking_throttle_data)
+
+        
+
+
+       
 
 def update_speed_velocity_graph(laps: List[Lap]):
     last_lap, reference_lap, median_lap = gt7helper.get_last_reference_median_lap(
@@ -510,11 +528,17 @@ l3 = layout(
     sizing_mode="stretch_width",
 )
 
+l4 = layout(
+    race_diagram.f_braking_throttle,
+    sizing_mode="stretch_both",  # Adjusts both width and height to fit the scree
+)
+
 #  Setup the tabs
 tab1 = TabPanel(child=l1, title="Get Faster")
 tab2 = TabPanel(child=l2, title="Race Lines")
 tab3 = TabPanel(child=l3, title="Race")
-tabs = Tabs(tabs=[tab1, tab2, tab3])
+tab4 = TabPanel(child=l4, title="Realtime")
+tabs = Tabs(tabs=[tab1, tab2, tab3, tab4], sizing_mode="stretch_both")
 
 curdoc().add_root(tabs)
 curdoc().title = "GT7 Dashboard"
@@ -522,3 +546,5 @@ curdoc().title = "GT7 Dashboard"
 # This will only trigger once per lap, but we check every second if anything happened
 curdoc().add_periodic_callback(update_lap_change, 1000)
 curdoc().add_periodic_callback(update_fuel_map, 5000)
+
+curdoc().add_periodic_callback(update_braking_and_throttle,17) # 60 FPS
