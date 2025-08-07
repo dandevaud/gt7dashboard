@@ -2,7 +2,7 @@
 
 gt7dashboard is a live dashboard for Gran Turismo 7. Based on the recent discovery of the telemetry interface of GT7 described [here first](https://www.gtplanet.net/forum/threads/gt7-is-compatible-with-motion-rig.410728 ). This began as a fork of Bornhalls [gt7telemetry](https://github.com/Bornhall/gt7telemetry).
 
-See the [Manual](#manual) for detailed instructions.
+See the [Manual](#manual) for detailed instructions. 
 
 ## Features
 
