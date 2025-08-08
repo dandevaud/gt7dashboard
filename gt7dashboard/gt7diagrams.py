@@ -10,7 +10,7 @@ from bokeh.plotting import figure
 from gt7dashboard import gt7helper
 from gt7dashboard.gt7lap import Lap
 
-if os.environ.get("GT7_TIMEFRAME_TO_SHOW") and os.environ.get("GT7_UPDATE_FREQUENCY_MS")
+if os.environ.get("GT7_TIMEFRAME_TO_SHOW") and os.environ.get("GT7_UPDATE_FREQUENCY_MS"):
     interval = int(os.environ.get("GT7_TIMEFRAME_TO_SHOW")) * 1000 / os.environ.get("GT7_UPDATE_FREQUENCY_MS")
 
 def get_throttle_braking_race_line_diagram():
@@ -469,7 +469,7 @@ class RaceDiagram(object):
         Adds the braking and throttle data to the diagram.
         :param braking_throttle_data: List of dicts with keys 'DateTime', 'Brake' and 'Throttle'
         """
-        if len(braking_throttle_data) == 0:
+        if len(braking_throttle_data) == 0 or not interval:
             return
         new_row = {"DateTime": [datetime.now()], "Brake": [braking_throttle_data["braking"]], "Throttle": [braking_throttle_data["throttle"]]}
         self.source_braking_throttle.stream(new_row, interval)
