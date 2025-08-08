@@ -547,7 +547,7 @@ curdoc().title = "GT7 Dashboard"
 curdoc().add_periodic_callback(update_lap_change, 1000)
 curdoc().add_periodic_callback(update_fuel_map, 5000)
 
-updateFrequency = os.environ.get("GT7_UPDATE_FREQUENCY_MS")
+updateFrequency = int(os.environ.get("GT7_UPDATE_FREQUENCY_MS"))
 if not updateFrequency:
     updateFrequency = 100
 curdoc().add_periodic_callback(update_braking_and_throttle,updateFrequency)
