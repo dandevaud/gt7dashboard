@@ -548,6 +548,8 @@ curdoc().add_periodic_callback(update_lap_change, 1000)
 curdoc().add_periodic_callback(update_fuel_map, 5000)
 
 updateFrequency = int(os.environ.get("GT7_UPDATE_FREQUENCY_MS"))
-if not updateFrequency:
-    updateFrequency = 100
-curdoc().add_periodic_callback(update_braking_and_throttle,updateFrequency)
+timeframeToShow = os.environ.get("GT7_TIMEFRAME_TO_SHOW")
+if timeframeToShow:
+    if not updateFrequency:
+        updateFrequency = 100
+    curdoc().add_periodic_callback(update_braking_and_throttle,updateFrequency)
