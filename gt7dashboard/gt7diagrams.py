@@ -10,7 +10,7 @@ from bokeh.plotting import figure
 from gt7dashboard import gt7helper
 from gt7dashboard.gt7lap import Lap
 
-
+interval = int(os.environ.get("GT7_TIMEFRAME_TO_SHOW")) * 1000 / os.environ.get("GT7_UPDATE_FREQUENCY_MS")
 def get_throttle_braking_race_line_diagram():
     # TODO Make this work, tooltips just show breakpoint
     race_line_tooltips = [("index", "$index")]
@@ -470,7 +470,7 @@ class RaceDiagram(object):
         if len(braking_throttle_data) == 0:
             return
         new_row = {"DateTime": [datetime.now()], "Brake": [braking_throttle_data["braking"]], "Throttle": [braking_throttle_data["throttle"]]}
-        self.source_braking_throttle.stream(new_row, 1200)
+        self.source_braking_throttle.stream(new_row, interval)
 
     def add_lap_to_race_diagram(self, color: str, legend: str, visible: bool = True):
 
