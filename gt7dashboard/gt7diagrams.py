@@ -269,7 +269,8 @@ class RaceDiagram(object):
         self.f_braking_throttle = figure(
             x_axis_type="datetime",
             y_axis_label="Braking / Throttle",
-            sizing_mode="stretch_both",
+            height=850,
+            width=1600,
             tooltips=tooltips,
             active_drag="box_zoom",
             y_range=Range1d(0, 100),
@@ -472,7 +473,7 @@ class RaceDiagram(object):
         if len(braking_throttle_data) == 0 or not interval:
             return
         new_row = {"DateTime": [datetime.now()], "Brake": [braking_throttle_data["braking"]], "Throttle": [braking_throttle_data["throttle"]]}
-        self.source_braking_throttle.stream(new_row, interval)
+        self.source_braking_throttle.stream(new_row, int(interval))
 
     def add_lap_to_race_diagram(self, color: str, legend: str, visible: bool = True):
 

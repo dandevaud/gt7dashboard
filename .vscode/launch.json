@@ -1,0 +1,29 @@
+{
+"version": "0.2.0",
+"configurations": [
+    {
+        "name": "Python Debugger: Current File",
+        "type": "python",
+        "request": "launch",
+        "program": "${file}",
+        "console": "integratedTerminal",
+        "env": {
+            "GT7_UPDATE_FREQUENCY_MS": "40",
+            "GT7_TIMEFRAME_TO_SHOW": "20",
+            "GT7_PLAYSTATION_IP": "192.168.10.225"
+        }
+    },
+    {
+        "name": "Bokeh Server",
+        "type": "python",
+        "request": "launch",
+        "module": "bokeh",
+        "args": [
+            "serve",
+            "."
+        ],
+        "console": "integratedTerminal",
+        "envFile": "${workspaceFolder}\\.env"
+    }
+]
+}

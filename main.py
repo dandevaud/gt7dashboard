@@ -3,7 +3,6 @@ import itertools
 import logging
 import os
 import time
-import threading
 from typing import List
 
 import bokeh.application
@@ -13,8 +12,6 @@ from bokeh.models import (
     Select,
     Paragraph,
     ColumnDataSource,
-    TableColumn,
-    DataTable,
     Button,
     Div, CheckboxGroup, TabPanel, Tabs,
 )
@@ -337,7 +334,7 @@ def get_race_lines_layout(number_of_race_lines):
         race_lines_data.append([throttle_line, breaking_line, coasting_line, reference_throttle_line, reference_breaking_line, reference_coasting_line])
         i+=1
 
-    l = layout(children=race_line_diagrams)
+    l = layout(children=race_line_diagrams, sizing_mode="inherit")
     l.sizing_mode = sizing_mode
 
     return l, race_line_diagrams, race_lines_data
@@ -388,6 +385,11 @@ stored_lap_files = gt7helper.bokeh_tuple_for_list_of_lapfiles(
     list_lap_files_from_path(os.path.join(os.getcwd(), "data"))
 )
 
+
+race_line_width = 250
+speed_diagram_width = 1200
+total_width = race_line_width + speed_diagram_width
+
 race_diagram = gt7diagrams.RaceDiagram(width=1000)
 race_time_table = gt7diagrams.RaceTimeTable()
 colors = itertools.cycle(palette)
@@ -423,9 +425,6 @@ race_time_table.lap_times_source.selected.on_change('indices', table_row_selecti
 # Race line
 
 race_line_tooltips = [("index", "$index"), ("Breakpoint", "")]
-race_line_width = 250
-speed_diagram_width = 1200
-total_width = race_line_width + speed_diagram_width
 s_race_line = figure(
     title="Race Line",
     x_axis_label="x",
@@ -525,12 +524,11 @@ l3 = layout(
         [reset_button, save_button],
         [div_speed_peak_valley_diagram, div_fuel_map], # TODO Race table does not render twice, one rendering will be empty
      ],
-    sizing_mode="stretch_width",
+    sizing_mode="inherit", 
 )
 
 l4 = layout(
-    race_diagram.f_braking_throttle,
-    sizing_mode="stretch_both",  # Adjusts both width and height to fit the scree
+    race_diagram.f_braking_throttle,  # Adjusts both width and height to fit the scree
 )
 
 #  Setup the tabs
@@ -540,6 +538,14 @@ tab3 = TabPanel(child=l3, title="Race")
 tab4 = TabPanel(child=l4, title="Realtime")
 tabs = Tabs(tabs=[tab1, tab2, tab3, tab4], sizing_mode="stretch_both")
 
+curdoc().template =  """
+{% block contents %}
+    {{ embed(doc) }}
+    <div style="display: inline-block; width: 100%; height: 100%">
+        {{ embed(doc.roots[0]) }}
+    </div>
+{% endblock %}
+"""
 curdoc().add_root(tabs)
 curdoc().title = "GT7 Dashboard"
 
@@ -547,9 +553,9 @@ curdoc().title = "GT7 Dashboard"
 curdoc().add_periodic_callback(update_lap_change, 1000)
 curdoc().add_periodic_callback(update_fuel_map, 5000)
 
-updateFrequency = int(os.environ.get("GT7_UPDATE_FREQUENCY_MS"))
+updateFrequency = os.environ.get("GT7_UPDATE_FREQUENCY_MS")
 timeframeToShow = os.environ.get("GT7_TIMEFRAME_TO_SHOW")
 if timeframeToShow:
     if not updateFrequency:
-        updateFrequency = 100
-    curdoc().add_periodic_callback(update_braking_and_throttle,updateFrequency)
+        updateFrequency = "100"
+    curdoc().add_periodic_callback(update_braking_and_throttle,int(updateFrequency))
