@@ -10,6 +10,7 @@ from bokeh.driving import linear
 from bokeh.layouts import layout
 from bokeh.models import (
     Select,
+    MultiSelect,
     Paragraph,
     ColumnDataSource,
     Button,
@@ -20,6 +21,7 @@ from bokeh.plotting import curdoc
 from bokeh.plotting import figure
 
 from gt7dashboard import gt7communication, gt7diagrams, gt7help, gt7helper, gt7lap
+from gt7dashboard.gt7data import GTData
 from gt7dashboard.gt7diagrams import get_speed_peak_and_valley_diagram
 
 from gt7dashboard.gt7help import get_help_div
@@ -173,18 +175,14 @@ def update_lap_change():
     g_laps_stored = laps.copy()
     g_telemetry_update_needed = False
 
-def update_braking_and_throttle():
+def update_realtime_data():
     """
     This function updates the braking and throttle diagram.
     """ 
     last_data = app.gt7comm.get_last_data()
     if last_data is None:   
         return
-    braking_throttle_data = {
-        "braking": last_data.brake,
-        "throttle": last_data.throttle,
-    }
-    race_diagram.add_braking_throttle_data(braking_throttle_data)
+    race_diagram.add_realtime_debug_data(last_data)
 
         
 
@@ -531,12 +529,22 @@ l4 = layout(
     race_diagram.f_braking_throttle,  # Adjusts both width and height to fit the scree
 )
 
+
+l5 = layout(
+    children=[
+        [div_connection_info, race_diagram.select_debug_info_columns],
+        race_diagram.f_debug_info,
+
+    ]
+)
+
 #  Setup the tabs
 tab1 = TabPanel(child=l1, title="Get Faster")
 tab2 = TabPanel(child=l2, title="Race Lines")
 tab3 = TabPanel(child=l3, title="Race")
 tab4 = TabPanel(child=l4, title="Realtime")
-tabs = Tabs(tabs=[tab1, tab2, tab3, tab4], sizing_mode="stretch_both")
+tab5 = TabPanel(child=l5, title="Debug")
+tabs = Tabs(tabs=[tab1, tab2, tab3, tab4,tab5], sizing_mode="stretch_both")
 
 curdoc().template =  """
 {% block contents %}
@@ -558,4 +566,4 @@ timeframeToShow = os.environ.get("GT7_TIMEFRAME_TO_SHOW")
 if timeframeToShow:
     if not updateFrequency:
         updateFrequency = "100"
-    curdoc().add_periodic_callback(update_braking_and_throttle,int(updateFrequency))
+    curdoc().add_periodic_callback(update_realtime_data,int(updateFrequency))
