@@ -26,6 +26,7 @@ class Lap:
         # Data points with value for every tick
         self.data_throttle = []
         self.data_braking = []
+        self.data_steering = []
         self.data_coasting = []
         self.data_speed = []
         self.data_time = []

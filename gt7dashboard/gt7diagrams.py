@@ -1,14 +1,18 @@
+import itertools
 import os
 from typing import List
 from datetime import datetime
 
 import bokeh
 from bokeh.layouts import layout
-from bokeh.models import ColumnDataSource, Label, Scatter, Column, Line, TableColumn, DataTable, Range1d
+from bokeh.models import ColumnDataSource, Label, Column, Line, TableColumn, DataTable, Range1d, LinearAxis
 from bokeh.plotting import figure
+from bokeh.palettes import Dark2_5 as palette
 
 from gt7dashboard import gt7helper
+from gt7dashboard.gt7data import GTData
 from gt7dashboard.gt7lap import Lap
+from bokeh.models import MultiChoice
 
 if os.environ.get("GT7_TIMEFRAME_TO_SHOW") and os.environ.get("GT7_UPDATE_FREQUENCY_MS"):
     interval = int(os.environ.get("GT7_TIMEFRAME_TO_SHOW")) * 1000 / int(os.environ.get("GT7_UPDATE_FREQUENCY_MS"))
@@ -274,8 +278,18 @@ class RaceDiagram(object):
             tooltips=tooltips,
             active_drag="box_zoom",
             y_range=Range1d(0, 100),
+            extra_y_ranges={"steering": Range1d(-270, 270)},
         )
-        # self.f_braking_throttle.sizing_mode = "scale_width"
+        self.f_braking_throttle.add_layout(LinearAxis(y_range_name="steering"), 'right')
+
+        self.f_debug_info = figure(
+            x_axis_type="datetime",
+            y_axis_label="Debug Info",
+            height=850,
+            width=1600,
+            tooltips=tooltips,
+            active_drag="box_zoom",
+        )
 
         self.f_coasting = figure(
             x_range=self.f_speed.x_range,
@@ -388,9 +402,40 @@ class RaceDiagram(object):
         self.source_median_lap = self.add_lap_to_race_diagram("green", "Median Lap", False)
 
         self.source_braking_throttle = ColumnDataSource(data={
-            "DateTime": [],
-            "Brake": [],
-            "Throttle": []})
+            "date_time": [],
+            "brake": [],
+            "throttle": [],
+            "steering": []})
+        
+        self.source_debug = ColumnDataSource(data={
+            "date_time": []
+        })
+
+        # Add a Select widget to dynamically set the columns
+
+        self.select_debug_info_columns = MultiChoice(
+            title="Select Debug Columns",
+            value=[],
+            options=GTData.get_attributes(),
+            width=400
+        )
+
+        self.colors = itertools.cycle(palette)   
+
+        def update_columns(attr, old, new):
+            self.source_debug.data = {col: [] for col in new}
+            self.source_debug.data["date_time"] = []
+            diff = set(new) - set(old)
+            for value, color in zip(diff, self.colors):
+                self.f_debug_info.line(x="date_time", y=value, color=color, legend_label=value, source=self.source_debug, line_width=1, line_alpha=1, visible=True)
+            to_remove = set(old) - set(new)
+            for value in to_remove:
+                for r in self.f_debug_info.renderers:
+                    if isinstance(r, Line) and r.glyph.y == value:
+                        self.f_debug_info.renderers.remove(r)
+                        break
+
+        self.select_debug_info_columns.on_change("value", update_columns)
 
         self.f_speed.legend.click_policy = "hide"
         self.f_throttle.legend.click_policy = self.f_speed.legend.click_policy
@@ -432,8 +477,8 @@ class RaceDiagram(object):
 
         self.braking_throttle_lines.append(
             self.f_braking_throttle.line(
-                x="DateTime",
-                y="Brake",
+                x="date_time",
+                y="brake",
                 source=self.source_braking_throttle,
                 line_width=2,
                 color="red",
@@ -442,13 +487,25 @@ class RaceDiagram(object):
             ))
         self.braking_throttle_lines.append(
             self.f_braking_throttle.line(
-                x="DateTime",
-                y="Throttle",
+                x="date_time",
+                y="throttle",
                 source=self.source_braking_throttle,
                 line_width=2,
                 color="green",
                 line_alpha=1,
                 legend_label="Throttle",
+            )
+        )
+        self.braking_throttle_lines.append(
+            self.f_braking_throttle.line(
+                x="date_time",
+                y="steering",
+                y_range_name="steering",
+                source=self.source_braking_throttle,
+                line_width=2,
+                color="blue",
+                line_alpha=1,
+                legend_label="Steering",
             )
         )
 
@@ -465,16 +522,18 @@ class RaceDiagram(object):
         self.source_speed_variance.data = variance
         return fastest_laps
     
-    def add_braking_throttle_data(self, braking_throttle_data: dict):
+    def add_realtime_debug_data(self, debug_data: GTData):
         """
-        Adds the braking and throttle data to the diagram.
-        :param braking_throttle_data: List of dicts with keys 'DateTime', 'Brake' and 'Throttle'
+        Adds the debug data to the diagram.
+        :param debug_data: GTData object with debug information
         """
-        if len(braking_throttle_data) == 0 or not interval:
+        if debug_data is None or not interval:
             return
-        new_row = {"DateTime": [datetime.now()], "Brake": [braking_throttle_data["braking"]], "Throttle": [braking_throttle_data["throttle"]]}
-        self.source_braking_throttle.stream(new_row, int(interval))
-
+        new_brake_throttle = {"date_time": [datetime.now()], "brake": [debug_data.brake], "throttle": [debug_data.throttle], "steering": [debug_data.wheel_rotation]}
+        new_row = {key: [getattr(debug_data, key)] for key in self.source_debug.data.keys()}
+        self.source_braking_throttle.stream(new_brake_throttle, int(interval))
+        self.source_debug.stream(new_row, int(interval))
+    
     def add_lap_to_race_diagram(self, color: str, legend: str, visible: bool = True):
 
         # Set empty data for avoiding warnings about missing columns
