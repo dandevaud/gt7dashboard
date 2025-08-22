@@ -1,7 +1,9 @@
 import datetime
+from enum import Enum
 import json
 import logging
 import math
+import os
 import socket
 import struct
 import time
@@ -116,6 +118,7 @@ class GTData:
         self.rotation_pitch = struct.unpack('f', ddata[0x1C:0x1C + 4])[0]  # rot Pitch
         self.rotation_yaw = struct.unpack('f', ddata[0x20:0x20 + 4])[0]  # rot Yaw
         self.rotation_roll = struct.unpack('f', ddata[0x24:0x24 + 4])[0]  # rot Roll
+        self.rotation_z =  struct.unpack('f', ddata[0x28:0x28+4])[0]	# rot Z ???
 
         self.angular_velocity_x = struct.unpack('f', ddata[0x2C:0x2C + 4])[0]  # angular velocity X
         self.angular_velocity_y = struct.unpack('f', ddata[0x30:0x30 + 4])[0]  # angular velocity Y
@@ -124,29 +127,50 @@ class GTData:
         self.is_paused = bin(struct.unpack('B', ddata[0x8E:0x8E + 1])[0])[-2] == '1'
         self.in_race = bin(struct.unpack('B', ddata[0x8E:0x8E + 1])[0])[-1] == '1'
 
-        # struct.unpack('f', ddata[0x28:0x28+4])[0]					# rot ???
-
+        
         # bin(struct.unpack('B', ddata[0x8E:0x8E+1])[0])[2:]	# various flags (see https://github.com/Nenkai/PDTools/blob/master/PDTools.SimulatorInterface/SimulatorPacketG7S0.cs)
         # bin(struct.unpack('B', ddata[0x8F:0x8F+1])[0])[2:]	# various flags (see https://github.com/Nenkai/PDTools/blob/master/PDTools.SimulatorInterface/SimulatorPacketG7S0.cs)
         # bin(struct.unpack('B', ddata[0x93:0x93+1])[0])[2:]	# 0x93 = ???
 
-        # struct.unpack('f', ddata[0x94:0x94+4])[0]			# 0x94 = ???
-        # struct.unpack('f', ddata[0x98:0x98+4])[0]			# 0x98 = ???
-        # struct.unpack('f', ddata[0x9C:0x9C+4])[0]			# 0x9C = ???
-        # struct.unpack('f', ddata[0xA0:0xA0+4])[0]			# 0xA0 = ???
+        self.road_plane_x = struct.unpack('f', ddata[0x94:0x94+4])[0]			# 0x94 = ???
+        self.road_plane_w = struct.unpack('f', ddata[0x98:0x98+4])[0]			# 0x98 = ???
+        self.road_plane_y = struct.unpack('f', ddata[0x9C:0x9C+4])[0]			# 0x9C = ???
+        self.road_plane_z = struct.unpack('f', ddata[0xA0:0xA0+4])[0]			# 0xA0 = ???
 
-        # struct.unpack('f', ddata[0xD4:0xD4+4])[0]			# 0xD4 = ???
-        # struct.unpack('f', ddata[0xD8:0xD8+4])[0]			# 0xD8 = ???
-        # struct.unpack('f', ddata[0xDC:0xDC+4])[0]			# 0xDC = ???
-        # struct.unpack('f', ddata[0xE0:0xE0+4])[0]			# 0xE0 = ???
+        self.unknown_1 = struct.unpack('f', ddata[0xD4:0xD4+4])[0]			# 0xD4 = ???
+        self.unknown_2 =  struct.unpack('f', ddata[0xD8:0xD8+4])[0]			# 0xD8 = ???
+        self.unknown_3 =  struct.unpack('f', ddata[0xDC:0xDC+4])[0]			# 0xDC = ???
+        self.unknown_4 = struct.unpack('f', ddata[0xE0:0xE0+4])[0]			# 0xE0 = ???
 
-        # struct.unpack('f', ddata[0xE4:0xE4+4])[0]			# 0xE4 = ???
-        # struct.unpack('f', ddata[0xE8:0xE8+4])[0]			# 0xE8 = ???
-        # struct.unpack('f', ddata[0xEC:0xEC+4])[0]			# 0xEC = ???
-        # struct.unpack('f', ddata[0xF0:0xF0+4])[0]			# 0xF0 = ???
+        self.unknown_5 =  struct.unpack('f', ddata[0xE4:0xE4+4])[0]			# 0xE4 = ???
+        self.unknown_6 =  struct.unpack('f', ddata[0xE8:0xE8+4])[0]			# 0xE8 = ???
+        self.unknown_7 =  struct.unpack('f', ddata[0xEC:0xEC+4])[0]			# 0xEC = ???
+        self.unknown_8 =  struct.unpack('f', ddata[0xF0:0xF0+4])[0]	
+        if len(ddata) >= 0x13C:
+            self.wheel_rotation =  struct.unpack('f', ddata[0x128:0x128+4])[0]
+            self.filler_float_fb = struct.unpack('f', ddata[0x12C:0x12C+4])[0]
+            self.sway = struct.unpack('f', ddata[0x130:0x130+4])[0]  # sway
+            self.heave = struct.unpack('f', ddata[0x134:0x134+4])[0]  # heave
+            self.surge = struct.unpack('f', ddata[0x138:0x138+4])[0]  # surge
+        if len(ddata) >= 0x158:
+            self.unfiltered_throttle = struct.unpack('i', ddata[0x13C:0x13C+1])[0]  # filtered throttle
+            self.unfiltered_brake = struct.unpack('i', ddata[0x13D:0x13D+1])[0]  # filtered brake
+            self.unknown_9 = struct.unpack('i', ddata[0x13E:0x13E+1])[0]  
+            self.unknown_10 = struct.unpack('i', ddata[0x13F:0x13F+1])[0]
+            self.unknown_vector_1_1 = struct.unpack('f', ddata[0x140:0x140+4])[0]  # 0x140 = ???
+            self.unknown_vector_1_2 = struct.unpack('f', ddata[0x144:0x144+4])[0]  # 0x144 = ???
+            self.unknown_vector_1_3 = struct.unpack('f', ddata[0x148:0x148+4])[0]  # 0x148 = ???
+            self.unknown_vector_1_4 = struct.unpack('f', ddata[0x14C:0x14C+4])[0] # 0x14C = ???
+            self.energy_recovery = struct.unpack('f', ddata[0x150:0x150+4])[0]  # energy recovery
+            self.unknown_15 = struct.unpack('f', ddata[0x154:0x154+4])[0]  # 0x154 = ???
 
     def to_json(self):
         return json.dumps(self, indent=4, sort_keys=True, default=str)
+    
+class HeartbeatCheckMode(Enum):
+    A = 'A'
+    B = 'B'
+    Tilde = '~'
 
 class Session():
     def __init__(self):
@@ -159,12 +183,24 @@ class Session():
     def __eq__(self, other):
         return other is not None and self.best_lap == other.best_lap and self.min_body_height == other.min_body_height and self.max_speed == other.max_speed
 
+def get_heartbeat_check_mode_from_environment() -> HeartbeatCheckMode:
+    s = os.environ.get("GT7_HEART_BEAT_MODE", 'A').upper()
+    if s == 'A':
+        return HeartbeatCheckMode.A
+    elif s == 'B':
+        return HeartbeatCheckMode.B
+    elif s == '~':
+        return HeartbeatCheckMode.Tilde
+    else:
+        return HeartbeatCheckMode.A
+
 class GT7Communication(Thread):
     def __init__(self, playstation_ip):
         # Thread control
         Thread.__init__(self)
         self._shall_run = True
         self._shall_restart = False
+        self._heartbeat_check_mode = get_heartbeat_check_mode_from_environment()
         # True will always quit with the main process
         self.daemon = True
 
@@ -266,7 +302,7 @@ class GT7Communication(Thread):
         return self._last_time_data_received > 0 and (time.time() - self._last_time_data_received) <= 1
 
     def _send_hb(self, s):
-        send_data = 'A'
+        send_data = self._heartbeat_check_mode.value
         s.sendto(send_data.encode('utf-8'), (self.playstation_ip, self.send_port))
 
     def get_last_data(self) -> GTData:
@@ -326,6 +362,7 @@ class GT7Communication(Thread):
 
         self.current_lap.data_braking.append(data.brake)
         self.current_lap.data_throttle.append(data.throttle)
+        self.current_lap.data_steering.append(data.wheel_rotation)
         self.current_lap.data_speed.append(data.car_speed)
 
         delta_divisor = data.car_speed
@@ -436,6 +473,14 @@ class GT7Communication(Thread):
     def set_lap_callback(self, new_lap_callback):
         self.lap_callback_function = new_lap_callback
 
+def get_iv(self, iv):     
+    if(self._heartbeat_check_mode == HeartbeatCheckMode.A):
+        iv2 = iv ^ 0xDEADBEAF
+    elif (self._heartbeat_check_mode == HeartbeatCheckMode.Tilde):
+        iv2 = iv ^ 0x55FABB4F
+    else:
+        iv2 = iv ^ 0xDEADBEEF
+    return iv2
 
 # data stream decoding
 def salsa20_dec(dat):
@@ -443,8 +488,7 @@ def salsa20_dec(dat):
     # Seed IV is always located here
     oiv = dat[0x40:0x44]
     iv1 = int.from_bytes(oiv, byteorder='little')
-    # Notice DEADBEAF, not DEADBEEF
-    iv2 = iv1 ^ 0xDEADBEAF
+    iv2 = get_iv(iv1)
     iv = bytearray()
     iv.extend(iv2.to_bytes(4, 'little'))
     iv.extend(iv1.to_bytes(4, 'little'))
