@@ -182,6 +182,7 @@ def update_realtime_data():
     last_data = app.gt7comm.get_last_data()
     if last_data is None:   
         return
+    debug_table.update_debug_data(last_data)
     race_diagram.add_realtime_debug_data(last_data)
 
         
@@ -390,6 +391,7 @@ total_width = race_line_width + speed_diagram_width
 
 race_diagram = gt7diagrams.RaceDiagram(width=1000)
 race_time_table = gt7diagrams.RaceTimeTable()
+debug_table = gt7diagrams.DebugTable()
 colors = itertools.cycle(palette)
 
 
@@ -530,13 +532,25 @@ l4 = layout(
 )
 
 
-l5 = layout(
+t1 = layout(
     children=[
         [div_connection_info, race_diagram.select_debug_info_columns],
         race_diagram.f_debug_info,
 
     ]
 )
+
+debug_table.t_debug_table.height=800
+
+t2 =layout(
+    children=[
+        debug_table.t_debug_table
+    ]
+)
+
+tab5_1 = TabPanel(child=t1, title="Graph")
+tab5_2 = TabPanel(child=t2, title="Table")
+l5 = Tabs(tabs=[tab5_1, tab5_2])
 
 #  Setup the tabs
 tab1 = TabPanel(child=l1, title="Get Faster")
