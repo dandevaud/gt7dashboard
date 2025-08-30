@@ -16,6 +16,7 @@ from pandas import DataFrame
 from scipy.signal import find_peaks
 from tabulate import tabulate
 
+from gt7dashboard.gt7data import GTData
 from gt7dashboard.gt7lap import Lap
 from gt7dashboard import gt7helper
 
@@ -531,6 +532,30 @@ def pd_data_frame_from_lap(
             index=[i],
         )
         df = pd.concat([df, df_add])
+
+    return df
+
+
+def pd_data_frame_from_debug_data(
+        gt7data: GTData
+) -> pd.DataFrame:
+    df = pd.DataFrame()
+    for name in GTData.get_attributes():
+        value = getattr(gt7data, name)
+        if value is None:
+            continue
+        df_add = pd.DataFrame(
+            [
+                {
+                    "name": name,
+                    "value": value
+                }
+            ],
+        )
+        if df.empty:
+            df = df_add.copy()
+        elif not df_add.empty:
+            df = pd.concat([df, df_add])
 
     return df
 

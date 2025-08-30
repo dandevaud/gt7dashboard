@@ -122,6 +122,22 @@ def get_throttle_braking_race_line_diagram():
         reference_coasting_line,
     )
 
+class DebugTable(object):
+    def get_table_column(attr_name: str) -> TableColumn:
+        return TableColumn(field=attr_name, title=attr_name)
+    
+    def __init__(self):
+        self.columns = [TableColumn(field="name", title="Name"), TableColumn(field="value", title="Value")]
+        self.t_debug_table = DataTable(
+            source=ColumnDataSource(data={"name": GTData.get_attributes(), "value":[""]*len(GTData.get_attributes())}),
+            columns=self.columns
+        )
+    def update_debug_data(self, debug_data: GTData):
+        if debug_data is None:
+            return
+        new_values = gt7helper.pd_data_frame_from_debug_data(debug_data)
+        self.t_debug_table.source.data = ColumnDataSource.from_df(new_values)
+
 class RaceTimeTable(object):
 
     def __init__(self):
