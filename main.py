@@ -32,6 +32,7 @@ from gt7dashboard.gt7helper import (
     calculate_time_diff_by_distance, save_laps_to_json, load_laps_from_json,
 )
 from gt7dashboard.gt7lap import Lap
+from gt7dashboard.s3helper import upload_json_object
 
 # set logging level to debug
 logger = logging.getLogger('main.py')
@@ -151,6 +152,9 @@ def update_lap_change():
             div_speed_peak_valley_diagram.text = get_speed_peak_and_valley_diagram(last_lap, reference_lap)
 
         update_header_line(div_header_line, last_lap, reference_lap)
+        if os.environ.get("GT7_LOG_TO_S3", "false").lower() == "true":
+            upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
+        
 
     logger.debug("Updating of %d laps" % len(laps))
 
@@ -393,7 +397,6 @@ race_diagram = gt7diagrams.RaceDiagram(width=1000)
 race_time_table = gt7diagrams.RaceTimeTable()
 debug_table = gt7diagrams.DebugTable()
 colors = itertools.cycle(palette)
-
 
 def table_row_selection_callback(attrname, old, new):
     global g_laps_stored
