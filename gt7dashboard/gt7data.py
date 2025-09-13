@@ -120,7 +120,7 @@ class GTData:
         self.package_id = struct.unpack('i', ddata[0x70:0x70 + 4])[0]
         self.best_lap = struct.unpack('i', ddata[0x78:0x78 + 4])[0]
         self.last_lap = struct.unpack('i', ddata[0x7C:0x7C + 4])[0]
-        self.current_lap = 0
+        self.current_lap = struct.unpack('h', ddata[0x74:0x74 + 2])[0]
         self.current_gear = struct.unpack('B', ddata[0x90:0x90 + 1])[0] & 0b00001111
         self.suggested_gear = struct.unpack('B', ddata[0x90:0x90 + 1])[0] >> 4
         self.fuel_capacity = struct.unpack('f', ddata[0x48:0x48 + 4])[0]
@@ -140,18 +140,19 @@ class GTData:
         self.car_speed = 3.6 * struct.unpack('f', ddata[0x4C:0x4C + 4])[0]
 
         if self.car_speed > 0:
-            self.tyre_slip_ratio_FL =.0
-            self.tyre_slip_ratio_FR =.0
-            self.tyre_slip_ratio_RL =.0
-            self.tyre_slip_ratio_RR =.0
+            self.tyre_slip_ratio_FL = '{:6.2f}'.format(self.type_speed_FL / self.car_speed)
+            self.tyre_slip_ratio_FR = '{:6.2f}'.format(self.type_speed_FR / self.car_speed)
+            self.tyre_slip_ratio_RL = '{:6.2f}'.format(self.type_speed_RL / self.car_speed)
+            self.tyre_slip_ratio_RR = '{:6.2f}'.format(self.tyre_speed_RR / self.car_speed)
+
 
         self.time_on_track = timedelta(
             seconds=round(struct.unpack('i', ddata[0x80:0x80 + 4])[0] / 1000))  # time of day on track
 
-        self.total_laps = 0  # total laps
+        self.total_laps = struct.unpack('h', ddata[0x76:0x76 + 2])[0]  # total laps
 
-        self.current_position = 0  # current position
-        self.total_positions = 0  # total positions
+        self.current_position = struct.unpack('h', ddata[0x84:0x84 + 2])[0]  # current position
+        self.total_positions = struct.unpack('h', ddata[0x86:0x86 + 2])[0]  # total positions
 
         self.car_id = struct.unpack('i', ddata[0x124:0x124 + 4])[0]  # car id
 
@@ -165,7 +166,7 @@ class GTData:
 
         self.rpm_rev_limiter = struct.unpack('H', ddata[0x8A:0x8A + 2])[0]  # rpm rev limiter
 
-        self.estimated_top_speed = 0  # estimated top speed
+        self.estimated_top_speed = struct.unpack('h', ddata[0x8C:0x8C + 2])[0]  # estimated top speed
 
         self.clutch = struct.unpack('f', ddata[0xF4:0xF4 + 4])[0]  # clutch
         self.clutch_engaged = struct.unpack('f', ddata[0xF8:0xF8 + 4])[0]  # clutch engaged
