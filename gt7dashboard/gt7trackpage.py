@@ -21,6 +21,7 @@ table_data = {
     "track_id": [],
     "car_id": [],
     "lap": [],
+    "cluster_id": [],  # Placeholder for cluster IDs
 }
 
 for obj in object_list:
@@ -37,6 +38,7 @@ for obj in object_list:
         table_data["track_id"].append("")
         table_data["car_id"].append("")
         table_data["lap"].append("")
+    table_data["cluster_id"].append("")  # Initialize with empty cluster IDs
 
 source = ColumnDataSource(data=table_data)
 
@@ -45,6 +47,7 @@ columns = [
     TableColumn(field="track_id", title="Track Id"),
     TableColumn(field="car_id", title="Car Id"),
     TableColumn(field="lap", title="Lap number"),
+    TableColumn(field="cluster_id", title="Cluster ID"),
 ]
 
 data_table = DataTable(
@@ -54,6 +57,25 @@ data_table = DataTable(
     width=800,
     height=600,
 )
+
+def on_row_selection(attr, old, new):
+    # Find the newly selected row(s)
+    new_selection = set(new) - set(old)
+    if not new_selection:
+        return
+
+    # Get the first newly selected index
+    selected_index = list(new_selection)[0]
+    obj_name = table_data["object_name"][selected_index]
+    lap_data = get_object(obj_name)
+    if not isinstance(lap_data, Lap):
+        print(f"Warning: Object {obj_name} is not a Lap instance.")
+        return
+
+    selected_raceline_figure = get_raceline_figure(lap_data, title=f"Lap # {selected_index}")
+    track_tab.children[1] = column([data_table, selected_raceline_figure], sizing_mode="stretch_both")
+
+source.selected.on_change('indices', on_row_selection)
 
 analyse_button = Button(label="Analyse Tracks", button_type="primary")
 raceline_plots = []
@@ -69,14 +91,13 @@ def get_raceline_figure(lap: Lap, title: str):
         active_drag="box_zoom",
         )
         lap_data  =  lap.get_data_dict()
-        lap_line = s_race_line.line(
+        s_race_line.line(
             x="raceline_x",
             y="raceline_z",
             line_width=1,
             color="blue",
-            source=ColumnDataSource(data={"raceline_x": [], "raceline_z": []})
+            source=ColumnDataSource(data=lap_data)
         )
-        lap_line.data_source.data =  lap_data
         return s_race_line
 
 
@@ -107,6 +128,9 @@ def analyse_tracks():
     print(f"Clustered into {len(set(clusters))} clusters.")
     for i, obj_name in enumerate(selected_objects):
         print(f"Track: {obj_name}, Cluster: {clusters[i]}") 
+        # Update the data table with cluster IDs
+        source.data["cluster_id"][selected_indices[i]] = clusters[i]
+    source.trigger('data', source.data, source.data)  # Refresh the table display
    
     unique_clusters = sorted(set(clusters))
     for cluster_id in unique_clusters:
@@ -120,14 +144,14 @@ def analyse_tracks():
         p = get_raceline_figure(lap, title=f"Cluster {cluster_id} ({len(cluster_indices)} laps)")
         raceline_plots.append(p)
 
-    # Add plots below the data_table
-    track_tab.children.append(column(*raceline_plots))
+    # Add plots below the data_table    
+    track_tab.children.append(column(*raceline_plots, sizing_mode="scale_width"))
 
 analyse_button.on_click(analyse_tracks)
 
 track_tab = layout([
     [analyse_button],
-    [data_table]
+    data_table
 ])
 
 
