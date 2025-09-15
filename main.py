@@ -154,7 +154,12 @@ def update_lap_change():
 
         update_header_line(div_header_line, last_lap, reference_lap)
         if os.environ.get("GT7_LOG_TO_S3", "false").lower() == "true":
-            upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
+            try:
+                upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
+            except Exception as e:
+                logger.warning(f"Error uploading to S3: {e}, retrying")
+                upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
+   
         
 
     logger.debug("Updating of %d laps" % len(laps))
