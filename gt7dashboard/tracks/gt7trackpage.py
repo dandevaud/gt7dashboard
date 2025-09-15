@@ -1,7 +1,8 @@
 from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource
 from bokeh.layouts import layout
 from bokeh.io import curdoc
-from gt7dashboard.gt7trackclustering import cluster_laps
+from gt7dashboard.tracks.gt7trackanalysis import analyse_tracks
+from gt7dashboard.tracks.gt7trackclustering import cluster_laps
 from gt7dashboard.s3helper import get_object, list_objects
 import re
 from gt7dashboard.gt7lap import Lap
@@ -103,35 +104,9 @@ def get_raceline_figure(lap: Lap, title: str):
 
 
 
-
-# Vertical layout: button above table
-def analyse_tracks():
-    # Get selected indices from the DataTable
-    selected_indices = source.selected.indices
-    if not selected_indices:
-        print("No tracks selected.")
-        return
-
-    # Get selected object names
-    selected_objects = [table_data["object_name"][i] for i in selected_indices]
-
-    loaded_tracks = []
-    for obj_name in selected_objects:
-        lap_data = get_object(obj_name)
-        if not isinstance(lap_data, Lap):
-            print(f"Warning: Object {obj_name} is not a Lap instance.")
-            continue
-        loaded_tracks.append(lap_data)
-
-    print(f"Loaded {len(loaded_tracks)} tracks for analysis.")
-    clusters = cluster_laps(loaded_tracks)
-    print(f"Clustered into {len(set(clusters))} clusters.")
-    for i, obj_name in enumerate(selected_objects):
-        print(f"Track: {obj_name}, Cluster: {clusters[i]}") 
-        # Update the data table with cluster IDs
-        source.data["cluster_id"][selected_indices[i]] = clusters[i]
-    source.trigger('data', source.data, source.data)  # Refresh the table display
-   
+def on_analyse_button_click():
+    clusters, loaded_tracks = analyse_tracks(source, table_data, track_tab)
+     
     unique_clusters = sorted(set(clusters))
     for cluster_id in unique_clusters:
         # Get indices of laps in this cluster
@@ -147,7 +122,8 @@ def analyse_tracks():
     # Add plots below the data_table    
     track_tab.children.append(column(*raceline_plots, sizing_mode="scale_width"))
 
-analyse_button.on_click(analyse_tracks)
+
+analyse_button.on_click(on_analyse_button_click)
 
 track_tab = layout([
     [analyse_button],
