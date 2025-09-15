@@ -33,6 +33,7 @@ from gt7dashboard.gt7helper import (
 )
 from gt7dashboard.gt7lap import Lap
 from gt7dashboard.s3helper import upload_json_object
+from gt7dashboard.gt7trackpage import track_tab
 
 # set logging level to debug
 logger = logging.getLogger('main.py')
@@ -561,7 +562,8 @@ tab2 = TabPanel(child=l2, title="Race Lines")
 tab3 = TabPanel(child=l3, title="Race")
 tab4 = TabPanel(child=l4, title="Realtime")
 tab5 = TabPanel(child=l5, title="Debug")
-tabs = Tabs(tabs=[tab1, tab2, tab3, tab4,tab5], sizing_mode="stretch_both")
+tab6 = TabPanel(child=track_tab, title="Tracks")
+tabs = Tabs(tabs=[tab1, tab2, tab3, tab4,tab5,tab6], sizing_mode="stretch_both")
 
 curdoc().template =  """
 {% block contents %}
