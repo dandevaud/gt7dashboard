@@ -10,7 +10,8 @@ class S3Client:
         self.endpoint = os.environ.get("S3_ENDPOINT")
         self.access_key = os.environ.get("S3_ACCESS_KEY")
         self.secret_key = os.environ.get("S3_SECRET_KEY")
-        self.bucket_name = bucket_name or os.environ.get("S3_BUCKET_NAME")
+        self.bucket_name = bucket_name or os.environ.get("S3_BUCKET_NAME", "default-bucket")
+        self.secure = os.environ.get("S3_SECURE", "false").lower() == "true"
 
         if not all([self.endpoint, self.access_key, self.secret_key, self.bucket_name]):
             raise ValueError("Missing one or more required S3 environment variables.")
@@ -19,6 +20,7 @@ class S3Client:
             self.endpoint,
             access_key=self.access_key,
             secret_key=self.secret_key,
+            secure=self.secure 
         )
 
         # Ensure bucket exists
