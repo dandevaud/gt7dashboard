@@ -1,12 +1,12 @@
 # Vertical layout: button above table
 from gt7dashboard.gt7lap import Lap
-from gt7dashboard.s3helper import S3Uploader
+from gt7dashboard.s3helper import S3Client
 from tracks.gt7trackclustering import TrackClusterer
 
 
 
 def analyse_tracks(source, table_data, track_tab):
-    s3Uploader = S3Uploader()  # Initialize S3Uploader instance
+    s3Uploader = S3Client()  # Initialize S3Uploader instance
     clusterer = TrackClusterer()
     # Get selected indices from the DataTable
     selected_indices = source.selected.indices

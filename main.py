@@ -29,13 +29,13 @@ from gt7dashboard.gt7helper import (
     calculate_time_diff_by_distance, save_laps_to_json, load_laps_from_json,
 )
 from gt7dashboard.gt7lap import Lap
-from gt7dashboard.s3helper import S3Uploader
+from gt7dashboard.s3helper import S3Client
 from tracks.gt7trackpage import track_clustering_tab
 
 # set logging level to debug
 logger = logging.getLogger('main.py')
 logger.setLevel(logging.DEBUG)
-s3Uploader = S3Uploader()
+s3Uploader = S3Client()
 
 
 def update_connection_info():

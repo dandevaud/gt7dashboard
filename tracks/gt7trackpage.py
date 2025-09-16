@@ -2,16 +2,16 @@ from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource, TabPa
 from bokeh.layouts import layout
 from bokeh.io import curdoc
 from tracks.gt7trackanalysis import analyse_tracks
-from gt7dashboard.s3helper import get_object, list_objects
+from gt7dashboard.s3helper import S3Client
 import re
 from gt7dashboard.gt7lap import Lap
 from bokeh.plotting import figure
 from bokeh.layouts import column
 
 filename_regex = r'([^_]*)_([^_]*)_([^_]*)_([^_]*).json'  # Placeholder regex to extract date from filename
-
+s3Uploader = S3Client()
 # Get S3 objects using S3Helper
-object_list = list_objects()  # Assumes this returns a list of object names
+object_list = s3Uploader.list_objects()  # Assumes this returns a list of object names
 
 # Prepare data for DataTable
 # Parse object_list using regex and build a list of dicts for each object

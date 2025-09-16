@@ -4,7 +4,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
 from gt7dashboard.gt7lap import Lap
-from gt7dashboard.s3helper import S3Uploader
+from gt7dashboard.s3helper import S3Client
 
 class TrackClusterer:
     def __init__(self, n_tracks=118, centers_file=None):
@@ -12,7 +12,7 @@ class TrackClusterer:
         self.centers_file = centers_file
         self.centers = None
         self.kmeans = None
-        self.s3Uploader = S3Uploader()
+        self.s3Uploader = S3Client()
         try:
             self.centers = np.load(self.centers_file)
         except FileNotFoundError:
