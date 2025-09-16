@@ -105,22 +105,56 @@ def get_raceline_figure(lap: Lap, title: str):
 
 
 def on_analyse_button_click():
-    clusters, loaded_tracks = analyse_tracks(source, table_data, track_clustering_tab)
-     
-    unique_clusters = sorted(set(clusters))
-    for cluster_id in unique_clusters:
-        # Get indices of laps in this cluster
-        cluster_indices = [i for i, c in enumerate(clusters) if c == cluster_id]
-        if not cluster_indices:
-            continue
-        # Plot raceline for all laps in the cluster
-        for idx in cluster_indices:
-            lap = loaded_tracks[idx]
-            p = get_raceline_figure(lap, title=f"Cluster {cluster_id} - Lap {idx}")
+    try:
+        analyse_button.disabled = True
+        print("Analysing selected tracks...")
+        clusters, loaded_tracks = analyse_tracks(source, table_data, track_clustering_tab)
+        
+       
+        unique_clusters = sorted(set(clusters))
+        raceline_plots.clear()
+        cluster_lap_indices = {}
+
+        # TODO: Check funcitonality of below
+        def make_callback(cluster_id, p):
+            def callback(event):
+                p.renderers = []  # Clear previous lines
+                for idx in cluster_lap_indices[cluster_id]:
+                    lap = loaded_tracks[idx]
+                    lap_data = get_data_dict(lap)
+                    p.line(
+                        x="raceline_x",
+                        y="raceline_z",
+                        line_width=1,
+                        color="blue",
+                        source=ColumnDataSource(data=lap_data)
+                    )
+            return callback
+
+        for cluster_id in unique_clusters:
+            # Get indices of laps in this cluster
+            cluster_indices = [i for i, c in enumerate(clusters) if c == cluster_id]
+            if not cluster_indices:
+                continue
+            # Store indices for callback use
+            cluster_lap_indices[cluster_id] = cluster_indices
+
+            # Show only the first lap for each cluster initially
+            first_idx = cluster_indices[0]
+            lap = loaded_tracks[first_idx]
+            p = get_raceline_figure(lap, title=f"Cluster {cluster_id} - Lap {first_idx}")
+
+            # Add tap event to show all laps in cluster when clicked
+            p.on_event('tap', make_callback(cluster_id, p))
             raceline_plots.append(p)
 
-    # Add plots below the data_table    
-    track_clustering_tab.children.append(column(*raceline_plots, sizing_mode="scale_width"))
+        # Add plots below the data_table    
+        track_clustering_tab.children.append(column(*raceline_plots, sizing_mode="scale_width"))
+    except Exception as e:
+        print(f"Error during analysis: {e}")
+    finally:
+        analyse_button.disabled = False
+        print("Analysis complete.")
 
 
 analyse_button.on_click(on_analyse_button_click)

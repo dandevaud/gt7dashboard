@@ -14,11 +14,14 @@ class TrackClusterer:
         self.kmeans = None
         self.s3Uploader = S3Client()
         try:
-            self.centers = np.load(self.centers_file)
+            if centers_file is not None:
+                self.centers = np.load(self.centers_file)
+                self.kmeans = KMeans(n_clusters=len(self.centers), random_state=42, algorithm='elkan')
+                self.kmeans.cluster_centers_ = self.centers
         except FileNotFoundError:
             print(f"Cluster centers file {self.centers_file} not found. Please run save_cluster_centers first.")
 
-    def lap_to_feature_vector(lap: Lap, sample_points=5000):
+    def lap_to_feature_vector(self, lap: Lap, sample_points=5000):
         x = np.array(lap.data_position_x)
         y = np.array(lap.data_position_y)
         z = np.array(lap.data_position_z)
@@ -31,24 +34,27 @@ class TrackClusterer:
         feature = np.concatenate([sampled.flatten(), start, end])
         return feature
 
-    def estimate_best_k(self, laps, max_k=10, sample_points=10000):
+    def estimate_best_k(self, laps, max_k=10, sample_points=5000):
+        print(f"Estimating best k for {len(laps)} laps...")
         features = [self.lap_to_feature_vector(lap, sample_points=sample_points) for lap in laps]
         best_k = 2
         best_score = -1
         for k in range(2, min(max_k, len(features))):
-            kmeans = KMeans(n_clusters=k, random_state=42)
+            kmeans = KMeans(n_clusters=k, random_state=42, algorithm='elkan')
             labels = kmeans.fit_predict(features)
             score = silhouette_score(features, labels)
             if score > best_score:
                 best_score = score
                 best_k = k
+        print(f"Estimated best k: {best_k} with silhouette score {best_score:.4f}")
         return best_k
 
     # Currently 118 tracks in GT7: https://github.com/ddm999/gt7info/blob/web-new/_data/db/course.csv
     def cluster_laps(self, laps, n_tracks=118):
+        print(f"Clustering {len(laps)} laps into up to {n_tracks} clusters...")
         features = [self.lap_to_feature_vector(lap) for lap in laps]
         best_k = self.estimate_best_k(laps, max_k=n_tracks)
-        self.kmeans = KMeans(n_clusters=best_k, random_state=42)
+        self.kmeans = KMeans(n_clusters=best_k, random_state=42, algorithm='elkan')
         labels = self.kmeans.fit_predict(features)
         return labels  # List of cluster indices for each lap
 
@@ -82,7 +88,7 @@ class TrackClusterer:
             centers.append(center)
         self.kmeans.cluster_centers_ = np.array(centers)
 
-    def categorize_lap(self,lap, centers_file="cluster_centers.npy", sample_points=5000):
+    def categorize_lap(self, lap, centers_file="cluster_centers.npy", sample_points=5000):
         feature = self.lap_to_feature_vector(lap, sample_points=sample_points)
         centers = np.load(centers_file)
         distances = np.linalg.norm(centers - feature, axis=1)
