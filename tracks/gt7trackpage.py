@@ -1,17 +1,18 @@
 from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource, TabPanel, Tabs
 from bokeh.layouts import layout
 from bokeh.io import curdoc
+from gt7dashboard.gt7lap import Lap
+from gt7dashboard.gt7laphelper import get_data_dict
 from tracks.gt7trackanalysis import analyse_tracks
 from gt7dashboard.s3helper import S3Client
 import re
-from gt7dashboard.gt7lap import Lap
 from bokeh.plotting import figure
 from bokeh.layouts import column
 
 filename_regex = r'([^_]*)_([^_]*)_([^_]*)_([^_]*).json'  # Placeholder regex to extract date from filename
-s3Uploader = S3Client()
+s3Client = S3Client()
 # Get S3 objects using S3Helper
-object_list = s3Uploader.list_objects()  # Assumes this returns a list of object names
+object_list = s3Client.list_objects()  # Assumes this returns a list of object names
 
 # Prepare data for DataTable
 # Parse object_list using regex and build a list of dicts for each object
@@ -67,7 +68,7 @@ def on_row_selection(attr, old, new):
     # Get the first newly selected index
     selected_index = list(new_selection)[0]
     obj_name = table_data["object_name"][selected_index]
-    lap_data = get_object(obj_name)
+    lap_data = s3Client.get_object(obj_name)
     if not isinstance(lap_data, Lap):
         print(f"Warning: Object {obj_name} is not a Lap instance.")
         return
@@ -90,7 +91,7 @@ def get_raceline_figure(lap: Lap, title: str):
         height=250,
         active_drag="box_zoom",
         )
-        lap_data  =  lap.get_data_dict()
+        lap_data  =  get_data_dict(lap)
         s_race_line.line(
             x="raceline_x",
             y="raceline_z",
