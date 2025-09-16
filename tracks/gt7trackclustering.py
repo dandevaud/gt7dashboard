@@ -4,8 +4,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
 from gt7dashboard.gt7lap import Lap
-from gt7dashboard.s3helper import upload_file
-from gt7dashboard.s3helper import download_file
+from gt7dashboard.s3helper import S3Uploader
 
 class TrackClusterer:
     def __init__(self, n_tracks=118, centers_file=None):
@@ -13,6 +12,7 @@ class TrackClusterer:
         self.centers_file = centers_file
         self.centers = None
         self.kmeans = None
+        self.s3Uploader = S3Uploader()
         try:
             self.centers = np.load(self.centers_file)
         except FileNotFoundError:
@@ -65,7 +65,7 @@ class TrackClusterer:
                 print("S3_CLUSTER_BUCKET environment variable not set. Skipping upload.")
                 cluster_bucketName = "gt7dashboard/track/clusters"            
 
-            upload_file(tmp_filename, filename,cluster_bucketName )
+            self.s3Uploader.upload_file(tmp_filename, filename,cluster_bucketName )
     
     def load_cluster_centers_from_s3(self, cluster_track_map):
         centers = []
@@ -77,7 +77,7 @@ class TrackClusterer:
                 print("S3_CLUSTER_BUCKET environment variable not set. Skipping download.")
                 cluster_bucketName = "gt7dashboard/track/clusters"
             # Download file from S3
-            download_file(filename, tmp_filename, cluster_bucketName)
+            self.s3Uploader.download_file(filename, tmp_filename, cluster_bucketName)
             center = np.load(tmp_filename)
             centers.append(center)
         self.kmeans.cluster_centers_ = np.array(centers)

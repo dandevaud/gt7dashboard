@@ -1,8 +1,7 @@
-from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource
+from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource, TabPanel, Tabs
 from bokeh.layouts import layout
 from bokeh.io import curdoc
-from gt7dashboard.tracks.gt7trackanalysis import analyse_tracks
-from gt7dashboard.tracks.gt7trackclustering import cluster_laps
+from tracks.gt7trackanalysis import analyse_tracks
 from gt7dashboard.s3helper import get_object, list_objects
 import re
 from gt7dashboard.gt7lap import Lap
@@ -74,7 +73,7 @@ def on_row_selection(attr, old, new):
         return
 
     selected_raceline_figure = get_raceline_figure(lap_data, title=f"Lap # {selected_index}")
-    track_tab.children[1] = column([data_table, selected_raceline_figure], sizing_mode="stretch_both")
+    track_clustering_tab.children[1] = column([data_table, selected_raceline_figure], sizing_mode="stretch_both")
 
 source.selected.on_change('indices', on_row_selection)
 
@@ -105,7 +104,7 @@ def get_raceline_figure(lap: Lap, title: str):
 
 
 def on_analyse_button_click():
-    clusters, loaded_tracks = analyse_tracks(source, table_data, track_tab)
+    clusters, loaded_tracks = analyse_tracks(source, table_data, track_clustering_tab)
      
     unique_clusters = sorted(set(clusters))
     for cluster_id in unique_clusters:
@@ -113,25 +112,40 @@ def on_analyse_button_click():
         cluster_indices = [i for i, c in enumerate(clusters) if c == cluster_id]
         if not cluster_indices:
             continue
-        # Use the first Lap in the cluster
-        lap = loaded_tracks[cluster_indices[0]]
-        # Assume lap has attributes 'x' and 'y' for raceline coordinates
-        p = get_raceline_figure(lap, title=f"Cluster {cluster_id} ({len(cluster_indices)} laps)")
-        raceline_plots.append(p)
+        # Plot raceline for all laps in the cluster
+        for idx in cluster_indices:
+            lap = loaded_tracks[idx]
+            p = get_raceline_figure(lap, title=f"Cluster {cluster_id} - Lap {idx}")
+            raceline_plots.append(p)
 
     # Add plots below the data_table    
-    track_tab.children.append(column(*raceline_plots, sizing_mode="scale_width"))
+    track_clustering_tab.children.append(column(*raceline_plots, sizing_mode="scale_width"))
 
 
 analyse_button.on_click(on_analyse_button_click)
 
-track_tab = layout([
+track_clustering_tab = layout([
     [analyse_button],
     data_table
 ])
 
 
+#  Setup the tabs
+tab1 = TabPanel(child=track_clustering_tab, title="Analysis")
+tab2 = TabPanel(child=track_clustering_tab, title="Clustering")
+tabs = Tabs(tabs=[tab1, tab2], sizing_mode="stretch_both")
+
+
 
 # If running standalone for testing:
-if __name__ == "__main__":
-    curdoc().add_root(track_tab)
+if __name__ == "__main__":    
+    curdoc().template =  """
+    {% block contents %}
+        {{ embed(doc) }}
+        <div style="display: inline-block; width: 100%; height: 100%">
+            {{ embed(doc.roots[0]) }}
+        </div>
+    {% endblock %}
+    """
+    curdoc().title = "Track Analysis"
+    curdoc().add_root(track_clustering_tab)

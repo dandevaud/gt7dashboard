@@ -10,7 +10,6 @@ from bokeh.driving import linear
 from bokeh.layouts import layout
 from bokeh.models import (
     Select,
-    MultiSelect,
     Paragraph,
     ColumnDataSource,
     Button,
@@ -20,24 +19,23 @@ from bokeh.palettes import Plasma11 as palette
 from bokeh.plotting import curdoc
 from bokeh.plotting import figure
 
-from gt7dashboard import gt7communication, gt7diagrams, gt7help, gt7helper, gt7lap
-from gt7dashboard.gt7data import GTData
+from gt7dashboard import gt7communication, gt7diagrams, gt7help, gt7helper
 from gt7dashboard.gt7diagrams import get_speed_peak_and_valley_diagram
 
 from gt7dashboard.gt7help import get_help_div
 from gt7dashboard.gt7helper import (
     load_laps_from_pickle,
-    save_laps_to_pickle,
     list_lap_files_from_path,
     calculate_time_diff_by_distance, save_laps_to_json, load_laps_from_json,
 )
 from gt7dashboard.gt7lap import Lap
-from gt7dashboard.s3helper import upload_json_object
-from gt7dashboard.gt7trackpage import track_tab
+from gt7dashboard.s3helper import S3Uploader
+from tracks.gt7trackpage import track_clustering_tab
 
 # set logging level to debug
 logger = logging.getLogger('main.py')
 logger.setLevel(logging.DEBUG)
+s3Uploader = S3Uploader()
 
 
 def update_connection_info():
@@ -155,10 +153,10 @@ def update_lap_change():
         update_header_line(div_header_line, last_lap, reference_lap)
         if os.environ.get("GT7_LOG_TO_S3", "false").lower() == "true":
             try:
-                upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
+                s3Uploader.upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
             except Exception as e:
                 logger.warning(f"Error uploading to S3: {e}, retrying")
-                upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
+                s3Uploader.upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
    
         
 
@@ -567,7 +565,7 @@ tab2 = TabPanel(child=l2, title="Race Lines")
 tab3 = TabPanel(child=l3, title="Race")
 tab4 = TabPanel(child=l4, title="Realtime")
 tab5 = TabPanel(child=l5, title="Debug")
-tab6 = TabPanel(child=track_tab, title="Tracks")
+tab6 = TabPanel(child=track_clustering_tab, title="Tracks")
 tabs = Tabs(tabs=[tab1, tab2, tab3, tab4,tab5,tab6], sizing_mode="stretch_both")
 
 curdoc().template =  """
