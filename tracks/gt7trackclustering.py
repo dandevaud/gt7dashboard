@@ -34,9 +34,7 @@ class TrackClusterer:
         feature = np.concatenate([sampled.flatten(), start, end])
         return feature
 
-    def estimate_best_k(self, laps, max_k=10, sample_points=5000):
-        print(f"Estimating best k for {len(laps)} laps...")
-        features = [self.lap_to_feature_vector(lap, sample_points=sample_points) for lap in laps]
+    def estimate_best_k(self, features, max_k=10):
         best_k = 2
         best_score = -1
         for k in range(2, min(max_k, len(features))):
@@ -52,8 +50,10 @@ class TrackClusterer:
     # Currently 118 tracks in GT7: https://github.com/ddm999/gt7info/blob/web-new/_data/db/course.csv
     def cluster_laps(self, laps, n_tracks=118):
         print(f"Clustering {len(laps)} laps into up to {n_tracks} clusters...")
-        features = [self.lap_to_feature_vector(lap) for lap in laps]
-        best_k = self.estimate_best_k(laps, max_k=n_tracks)
+        sample_points = min(laps, key=lambda lap: len(lap.data_position_x)).data_position_x.__len__()
+        print(f"Using {sample_points} sample points for feature vectors.")
+        features = [self.lap_to_feature_vector(lap, sample_points=sample_points) for lap in laps]
+        best_k = self.estimate_best_k(features, max_k=n_tracks)
         self.kmeans = KMeans(n_clusters=best_k, random_state=42, algorithm='elkan')
         labels = self.kmeans.fit_predict(features)
         return labels  # List of cluster indices for each lap

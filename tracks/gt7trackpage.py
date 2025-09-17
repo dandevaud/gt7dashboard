@@ -1,6 +1,7 @@
-from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource, TabPanel, Tabs
+from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource, TabPanel, Tabs, DataCube, GroupingInfo
 from bokeh.layouts import layout
 from bokeh.io import curdoc
+from bokeh import colors
 from gt7dashboard.gt7lap import Lap
 from gt7dashboard.gt7laphelper import get_data_dict
 from tracks.gt7trackanalysis import analyse_tracks
@@ -8,6 +9,8 @@ from gt7dashboard.s3helper import S3Client
 import re
 from bokeh.plotting import figure
 from bokeh.layouts import column
+import random
+from bokeh.colors import RGB
 
 filename_regex = r'([^_]*)_([^_]*)_([^_]*)_([^_]*).json'  # Placeholder regex to extract date from filename
 s3Client = S3Client()
@@ -60,28 +63,25 @@ data_table = DataTable(
 )
 
 def on_row_selection(attr, old, new):
-    # Find the newly selected row(s)
-    new_selection = set(new) - set(old)
-    if not new_selection:
-        return
+    laps = []
+    for selected_index in new:
+        obj_name = table_data["object_name"][selected_index]
+        print(f"Selected row index: {selected_index}, Object name: {obj_name}")
+        lap_data = s3Client.get_object(obj_name)
+        if not isinstance(lap_data, Lap):
+            print(f"Warning: Object {obj_name} is not a Lap instance.")
+            continue
+        laps.append(lap_data)
 
-    # Get the first newly selected index
-    selected_index = list(new_selection)[0]
-    obj_name = table_data["object_name"][selected_index]
-    lap_data = s3Client.get_object(obj_name)
-    if not isinstance(lap_data, Lap):
-        print(f"Warning: Object {obj_name} is not a Lap instance.")
-        return
-
-    selected_raceline_figure = get_raceline_figure(lap_data, title=f"Lap # {selected_index}")
+    selected_raceline_figure = get_raceline_figure(laps, title=f"Lap # {new}")
     track_clustering_tab.children[1] = column([data_table, selected_raceline_figure], sizing_mode="stretch_both")
 
 source.selected.on_change('indices', on_row_selection)
 
 analyse_button = Button(label="Analyse Tracks", button_type="primary")
-raceline_plots = []
+cluster_data_cube = DataCube()
 
-def get_raceline_figure(lap: Lap, title: str):
+def get_raceline_figure(laps: list[Lap], title: str):
         s_race_line = figure(
         title=f"Race Line - {title}",
         x_axis_label="x",
@@ -91,14 +91,16 @@ def get_raceline_figure(lap: Lap, title: str):
         height=250,
         active_drag="box_zoom",
         )
-        lap_data  =  get_data_dict(lap)
-        s_race_line.line(
-            x="raceline_x",
-            y="raceline_z",
-            line_width=1,
-            color="blue",
-            source=ColumnDataSource(data=lap_data)
-        )
+        for lap in laps:
+            lap_data  =  get_data_dict(lap)
+
+            s_race_line.line(
+                x="raceline_x",
+                y="raceline_z",
+                line_width=1,
+                color=colors.named.__all__[random.randint(0, len(colors.named.__all__)-1)],
+                source=ColumnDataSource(data=lap_data)
+            )
         return s_race_line
 
 
@@ -108,48 +110,32 @@ def on_analyse_button_click():
     try:
         analyse_button.disabled = True
         print("Analysing selected tracks...")
-        clusters, loaded_tracks = analyse_tracks(source, table_data, track_clustering_tab)
-        
+        cluster_lap_map = analyse_tracks(source, table_data, track_clustering_tab)
+        cluster_table_data = {
+            "cluster_index": [],
+            "objectname": [],
+        }
+
+        for cluster_lap in enumerate(cluster_lap_map):
+            cluster_table_data["cluster_index"].append(cluster_lap[0])
+            cluster_table_data["objectname"].append(cluster_lap[1])
+
+        cluster_source = ColumnDataSource(data=cluster_table_data)
+        cluster_columns = [
+            TableColumn(field="objectname", title="Object Names"),
+        ]  
+        grouping = [
+            GroupingInfo(getter="cluster_index")
+        ]
+        cluster_data_cube = DataCube(
+            source=cluster_source,
+            columns=cluster_columns,
+            grouping=grouping,
+            width=800,
+            height=600,
+        )
+        track_clustering_tab.children.append(cluster_data_cube)        
        
-        unique_clusters = sorted(set(clusters))
-        raceline_plots.clear()
-        cluster_lap_indices = {}
-
-        # TODO: Check funcitonality of below
-        def make_callback(cluster_id, p):
-            def callback(event):
-                p.renderers = []  # Clear previous lines
-                for idx in cluster_lap_indices[cluster_id]:
-                    lap = loaded_tracks[idx]
-                    lap_data = get_data_dict(lap)
-                    p.line(
-                        x="raceline_x",
-                        y="raceline_z",
-                        line_width=1,
-                        color="blue",
-                        source=ColumnDataSource(data=lap_data)
-                    )
-            return callback
-
-        for cluster_id in unique_clusters:
-            # Get indices of laps in this cluster
-            cluster_indices = [i for i, c in enumerate(clusters) if c == cluster_id]
-            if not cluster_indices:
-                continue
-            # Store indices for callback use
-            cluster_lap_indices[cluster_id] = cluster_indices
-
-            # Show only the first lap for each cluster initially
-            first_idx = cluster_indices[0]
-            lap = loaded_tracks[first_idx]
-            p = get_raceline_figure(lap, title=f"Cluster {cluster_id} - Lap {first_idx}")
-
-            # Add tap event to show all laps in cluster when clicked
-            p.on_event('tap', make_callback(cluster_id, p))
-            raceline_plots.append(p)
-
-        # Add plots below the data_table    
-        track_clustering_tab.children.append(column(*raceline_plots, sizing_mode="scale_width"))
     except Exception as e:
         print(f"Error during analysis: {e}")
     finally:
