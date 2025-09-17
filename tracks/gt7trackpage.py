@@ -127,10 +127,13 @@ def on_analyse_button_click():
         grouping = [
             GroupingInfo(getter="cluster_index")
         ]
+        target = ColumnDataSource(data=dict(row_indices=[], labels=[]))
         cluster_data_cube = DataCube(
             source=cluster_source,
             columns=cluster_columns,
             grouping=grouping,
+            target=target,
+            selectable=True,
             width=800,
             height=600,
         )
