@@ -1,16 +1,17 @@
-from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource, TabPanel, Tabs, DataCube, GroupingInfo
-from bokeh.layouts import layout
+from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource, TabPanel, Tabs, Select, Row
+from bokeh.layouts import layout, row, column
 from bokeh.io import curdoc
 from bokeh import colors
+from gt7dashboard import gt7helper
 from gt7dashboard.gt7lap import Lap
 from gt7dashboard.gt7laphelper import get_data_dict
 from tracks.gt7trackanalysis import analyse_tracks
 from gt7dashboard.s3helper import S3Client
 import re
 from bokeh.plotting import figure
-from bokeh.layouts import column
 import random
 from bokeh.colors import RGB
+
 
 filename_regex = r'([^_]*)_([^_]*)_([^_]*)_([^_]*).json'  # Placeholder regex to extract date from filename
 s3Client = S3Client()
@@ -62,24 +63,14 @@ data_table = DataTable(
     height=600,
 )
 
-def on_row_selection(attr, old, new):
-    laps = []
-    for selected_index in new:
-        obj_name = table_data["object_name"][selected_index]
-        print(f"Selected row index: {selected_index}, Object name: {obj_name}")
-        lap_data = s3Client.get_object(obj_name)
-        if not isinstance(lap_data, Lap):
-            print(f"Warning: Object {obj_name} is not a Lap instance.")
-            continue
-        laps.append(lap_data)
-
-    selected_raceline_figure = get_raceline_figure(laps, title=f"Lap # {new}")
-    track_clustering_tab.children[1] = column([data_table, selected_raceline_figure], sizing_mode="stretch_both")
-
-source.selected.on_change('indices', on_row_selection)
+selected_laps = []
 
 analyse_button = Button(label="Analyse Tracks", button_type="primary")
-cluster_data_cube = DataCube()
+plot_selection_button = Button(label="Plot Selected Laps", button_type="success")
+cluster_div = Row()
+
+
+
 
 def get_raceline_figure(laps: list[Lap], title: str):
         s_race_line = figure(
@@ -103,41 +94,70 @@ def get_raceline_figure(laps: list[Lap], title: str):
             )
         return s_race_line
 
+def on_plot_selection_click():
+    selected_indices = source.selected.indices
+    laps = []
+    for selected_index in selected_indices:
+        obj_name = table_data["object_name"][selected_index]
+        print(f"Selected row index: {selected_index}, Object name: {obj_name}")
+        lap_data = s3Client.get_object(obj_name)
+        if not isinstance(lap_data, Lap):
+            print(f"Warning: Object {obj_name} is not a Lap instance.")
+            continue
+        laps.append(lap_data)
+
+    raceline_figure = get_raceline_figure(laps, title=f"Lap # {selected_indices}")
+    track_clustering_tab.children[1] = row([data_table, raceline_figure], sizing_mode="stretch_both")
 
 
+def create_cluster_dropdown(cluster_ids):
+    options = [str(cid) for cid in cluster_ids]
+    select = Select(title="Select Cluster ID:", value=options[0] if options else "", options=options)
+    return select
+
+def create_cluster_trackAssignment_form(cluster_id):
+    options = gt7helper.get_track_list()
+    select = Select(title="Select Track Assignment:", value="", options=options)
+    track_assignment_save_button = Button(label="Save Track Assignment", button_type="warning")
+    def on_track_assignment_save_click():
+        selected_track = select.value
+        print(f"Assigning Track {selected_track} to Cluster {cluster_id}")
+    
+    track_assignment_save_button.on_click(on_track_assignment_save_click)
+    return column([select, track_assignment_save_button], sizing_mode="stretch_both")
+
+def get_lap_data_from_object_names(object_names):
+    laps = []
+    for obj_name in object_names:
+        lap_data = s3Client.get_object(obj_name)
+        if isinstance(lap_data, Lap):
+            laps.append(lap_data)
+        else:
+            print(f"Warning: Object {obj_name} is not a Lap instance.")
+            continue
+    return laps
 
 def on_analyse_button_click():
     try:
         analyse_button.disabled = True
         print("Analysing selected tracks...")
         cluster_lap_map = analyse_tracks(source, table_data, track_clustering_tab)
-        cluster_table_data = {
-            "cluster_index": [],
-            "objectname": [],
-        }
 
-        for cluster_lap in enumerate(cluster_lap_map):
-            cluster_table_data["cluster_index"].append(cluster_lap[0])
-            cluster_table_data["objectname"].append(cluster_lap[1])
+        cluster_raceline_figures = []
+        track_assignment_form = None
 
-        cluster_source = ColumnDataSource(data=cluster_table_data)
-        cluster_columns = [
-            TableColumn(field="objectname", title="Object Names"),
-        ]  
-        grouping = [
-            GroupingInfo(getter="cluster_index")
-        ]
-        target = ColumnDataSource(data=dict(row_indices=[], labels=[]))
-        cluster_data_cube = DataCube(
-            source=cluster_source,
-            columns=cluster_columns,
-            grouping=grouping,
-            target=target,
-            selectable=True,
-            width=800,
-            height=600,
-        )
-        track_clustering_tab.children.append(cluster_data_cube)        
+        cluster_select = create_cluster_dropdown(cluster_lap_map.keys())
+        def on_cluster_select_change(attr, old, new):
+            nonlocal cluster_raceline_figures, track_assignment_form
+            selected_cluster_id = int(new)
+            selected_laps = cluster_lap_map.get(selected_cluster_id, [])
+            loaded_laps = get_lap_data_from_object_names(selected_laps)
+            cluster_raceline_figures = get_raceline_figure(loaded_laps, title=f"Cluster {selected_cluster_id}")
+            track_assignment_form = create_cluster_trackAssignment_form(selected_cluster_id)
+            cluster_div.children = [cluster_select, track_assignment_form, cluster_raceline_figures]
+
+        cluster_select.on_change("value", on_cluster_select_change)
+        cluster_div.children = [cluster_select]
        
     except Exception as e:
         print(f"Error during analysis: {e}")
@@ -147,10 +167,12 @@ def on_analyse_button_click():
 
 
 analyse_button.on_click(on_analyse_button_click)
+plot_selection_button.on_click(on_plot_selection_click)
 
 track_clustering_tab = layout([
-    [analyse_button],
-    data_table
+    [analyse_button, plot_selection_button],
+    data_table,
+    cluster_div
 ])
 
 

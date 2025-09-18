@@ -602,6 +602,22 @@ def get_race_line_coordinates_when_mode_is_active(lap: Lap, mode: str):
 
 
 CARS_CSV_FILENAME = "db/cars.csv"
+TRACKS_CSV_FILENAME = "db/course.csv"
+
+def get_track_list() -> dict[str, int]:
+    tracks = {}
+    # check if file exists
+    if not os.path.isfile(TRACKS_CSV_FILENAME):
+        logging.info("Could not find file %s" % TRACKS_CSV_FILENAME)
+        return tracks
+
+    # read csv from file
+    with open(TRACKS_CSV_FILENAME, 'r') as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        for row in csv_reader:
+            tracks[row[1]] = int(row[0])
+
+    return tracks
 
 
 def get_car_name_for_car_id(car_id: int) -> str:
