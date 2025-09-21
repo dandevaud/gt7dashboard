@@ -1,4 +1,4 @@
-from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource, TabPanel, Tabs, Select, Row
+from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource, TabPanel, Tabs, Select, Row, SelectEditor, CellEditor
 from bokeh.layouts import layout, row, column
 from bokeh.io import curdoc
 from bokeh import colors
@@ -28,13 +28,31 @@ table_data = {
     "lap": [],
     "cluster_id": [],  # Placeholder for cluster IDs
 }
+track_list = gt7helper.get_track_list()
+
+def map_track_name_to_id(track_name):
+    if track_name == "Unknown" or track_name == "":
+        return -1
+    for track_id, name in track_list:
+        if name == track_name:
+            return track_id
+    return None
+
+def map_track_id_to_name(track_id):
+    track_id = int(track_id)
+    if track_id < 0:
+        return "Unknown"
+    for tid, name in track_list:
+        if tid == track_id:
+            return name
+    return None
 
 for obj in object_list:
     match = re.search(filename_regex, obj)
     if match:
         table_data["object_name"].append(obj)
         table_data["date"].append(match.group(1))
-        table_data["track_id"].append(match.group(2))
+        table_data["track_id"].append(map_track_id_to_name(match.group(2)))
         table_data["car_id"].append(match.group(3))
         table_data["lap"].append(match.group(4))
     else:
@@ -47,12 +65,13 @@ for obj in object_list:
 
 source = ColumnDataSource(data=table_data)
 
+
 columns = [
-    TableColumn(field="date", title="Date"),
-    TableColumn(field="track_id", title="Track Id"),
-    TableColumn(field="car_id", title="Car Id"),
-    TableColumn(field="lap", title="Lap number"),
-    TableColumn(field="cluster_id", title="Cluster ID"),
+    TableColumn(field="date", title="Date", editor=CellEditor()),
+    TableColumn(field="track_id", title="Track", editor=SelectEditor(options=[track[1] for track in track_list])),
+    TableColumn(field="car_id", title="Car Id", editor=CellEditor()),
+    TableColumn(field="lap", title="Lap number", editor=CellEditor()),
+    TableColumn(field="cluster_id", title="Cluster ID", editor=CellEditor()),
 ]
 
 data_table = DataTable(
@@ -61,16 +80,37 @@ data_table = DataTable(
     selectable="checkbox",
     width=800,
     height=600,
+    editable=True,    
 )
 
 selected_laps = []
 
 analyse_button = Button(label="Analyse Tracks", button_type="primary")
 plot_selection_button = Button(label="Plot Selected Laps", button_type="success")
+save_changes_button = Button(label="Save Changes", button_type="success")
 cluster_div = Row()
 
 
-
+def save_changes():
+    print("Saving changes to S3...")
+    for i in range(len(source.data["object_name"])):
+        obj_name = source.data["object_name"][i]
+        new_track_name = source.data["track_id"][i]
+        new_track_id = map_track_name_to_id(new_track_name)
+        if new_track_id is None:
+            print(f"Warning: Track name {new_track_name} not found in track list.")
+            continue
+        match = re.search(filename_regex, obj_name)
+        if match:
+            current_track_id = match.group(2)
+            if str(new_track_id) != current_track_id and new_track_name != "":
+                new_obj_name = re.sub(r'([^_]*)_([^_]*)_([^_]*)_([^_]*)\.json', fr'\g<1>_{new_track_id}_\g<3>_\g<4>.json', obj_name)
+                print(f"Renaming object {obj_name} to {new_obj_name}")
+                s3Client.rename_object(obj_name, new_obj_name)
+                # Update the source data to reflect the change
+                source.data["object_name"][i] = new_obj_name
+    source.trigger('data', source.data, source.data)  # Refresh the table display
+    print("Changes saved.")
 
 def get_raceline_figure(laps: list[Lap], title: str):
         s_race_line = figure(
@@ -112,17 +152,22 @@ def on_plot_selection_click():
 
 def create_cluster_dropdown(cluster_ids):
     options = [str(cid) for cid in cluster_ids]
-    select = Select(title="Select Cluster ID:", value=options[0] if options else "", options=options)
+    select = Select(title="Select Cluster ID:", value="", options=options)
     return select
+def update_object_name_with_track(selected_track, obj_name):
+        new_obj_name = re.sub(r'([^_]*)_([^_]*)_([^_]*)_([^_]*)\.json', fr'\g<1>_{selected_track}_\g<3>_\g<4>.json', obj_name)
+        print(f"Renaming object {obj_name} to {new_obj_name}")
+        s3Client.rename_object(obj_name, new_obj_name)
 
-def create_cluster_trackAssignment_form(cluster_id):
+def create_cluster_trackAssignment_form(cluster_id, cluster_lap_map):
     options = gt7helper.get_track_list()
     select = Select(title="Select Track Assignment:", value="", options=options)
     track_assignment_save_button = Button(label="Save Track Assignment", button_type="warning")
     def on_track_assignment_save_click():
         selected_track = select.value
         print(f"Assigning Track {selected_track} to Cluster {cluster_id}")
-    
+        for obj_name in cluster_lap_map.get(cluster_id, []):
+                update_object_name_with_track(selected_track, obj_name)    
     track_assignment_save_button.on_click(on_track_assignment_save_click)
     return column([select, track_assignment_save_button], sizing_mode="stretch_both")
 
@@ -153,7 +198,7 @@ def on_analyse_button_click():
             selected_laps = cluster_lap_map.get(selected_cluster_id, [])
             loaded_laps = get_lap_data_from_object_names(selected_laps)
             cluster_raceline_figures = get_raceline_figure(loaded_laps, title=f"Cluster {selected_cluster_id}")
-            track_assignment_form = create_cluster_trackAssignment_form(selected_cluster_id)
+            track_assignment_form = create_cluster_trackAssignment_form(selected_cluster_id, cluster_lap_map)
             cluster_div.children = [cluster_select, track_assignment_form, cluster_raceline_figures]
 
         cluster_select.on_change("value", on_cluster_select_change)
@@ -168,9 +213,10 @@ def on_analyse_button_click():
 
 analyse_button.on_click(on_analyse_button_click)
 plot_selection_button.on_click(on_plot_selection_click)
+save_changes_button.on_click(save_changes)
 
 track_clustering_tab = layout([
-    [analyse_button, plot_selection_button],
+    [analyse_button, plot_selection_button, save_changes_button],
     data_table,
     cluster_div
 ])

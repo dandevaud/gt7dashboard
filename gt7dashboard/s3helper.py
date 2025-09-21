@@ -2,6 +2,7 @@ import io
 import os
 import pickle
 from minio import Minio
+from minio.commonconfig import CopySource
 from minio.error import S3Error
 
 class S3Client:
@@ -120,5 +121,19 @@ class S3Client:
         except S3Error as err:
             print(f"Error retrieving object '{object_name}': {err}")
             return None
+    
+    def rename_object(self, old_object_name, new_object_name, bucket_name: str = None):
+        if bucket_name is None:
+            bucket_name = self.bucket_name       
+        try:
+            self.client.copy_object(
+                bucket_name,
+                new_object_name,
+                CopySource(bucket_name, old_object_name)
+            )
+            self.client.remove_object(bucket_name, old_object_name)
+            print(f"Object '{old_object_name}' renamed to '{new_object_name}' in bucket '{bucket_name}'.")
+        except S3Error as err:
+            print(f"Error renaming object: {err}")
     
     
