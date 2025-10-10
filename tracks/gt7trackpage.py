@@ -1,4 +1,4 @@
-from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource, TabPanel, Tabs, Select, Row, SelectEditor, CellEditor
+from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource, TabPanel, Tabs, Select, Row, SelectEditor, CellEditor, Arrow, NormalHead
 from bokeh.layouts import layout, row, column
 from bokeh.io import curdoc
 from bokeh import colors
@@ -124,12 +124,27 @@ def get_raceline_figure(laps: list[Lap], title: str):
         )
         for lap in laps:
             lap_data  =  get_data_dict(lap)
+            color=colors.named.__all__[random.randint(0, len(colors.named.__all__)-1)]
 
+            # Draw an arrow for the first few coordinates to show direction
+            coords_x = lap_data.get("raceline_x", [])
+            coords_z = lap_data.get("raceline_z", [])
+            if len(coords_x) >= 50 and len(coords_z) >= 50:
+                # Draw arrow from first to second point
+                s_race_line.add_layout(
+                    Arrow(
+                        x_start=coords_x[0], y_start=coords_z[0],
+                        x_end=coords_x[50], y_end=coords_z[50],
+                        line_color=color,
+                        line_width=2,
+                        end=NormalHead(line_color=color, line_width=2, size=10)
+                    )
+                )
             s_race_line.line(
                 x="raceline_x",
                 y="raceline_z",
                 line_width=1,
-                color=colors.named.__all__[random.randint(0, len(colors.named.__all__)-1)],
+                color=color,
                 source=ColumnDataSource(data=lap_data)
             )
         return s_race_line
