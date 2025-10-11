@@ -19,6 +19,7 @@ from tabulate import tabulate
 from gt7dashboard.gt7data import GTData
 from gt7dashboard.gt7lap import Lap
 from gt7dashboard import gt7helper
+from gt7dashboard.gt7laphelper import car_name
 
 
 def calculate_remaining_fuel(
@@ -233,15 +234,6 @@ def seconds_to_lap_time(seconds):
     return prefix + "{:01.0f}:{:06.3f}".format(minutes, remaining)
 
 
-def find_speed_peaks_and_valleys(
-        lap: Lap, width: int = 100
-) -> tuple[list[int], list[int]]:
-    inv_data_speed = [i * -1 for i in lap.data_speed]
-    peaks, whatisthis = find_peaks(lap.data_speed, width=width)
-    valleys, whatisthis = find_peaks(inv_data_speed, width=width)
-    return list(peaks), list(valleys)
-
-
 def get_speed_peaks_and_valleys(lap: Lap):
     peaks, valleys = find_speed_peaks_and_valleys(lap, width=100)
 
@@ -265,6 +257,7 @@ def get_speed_peaks_and_valleys(lap: Lap):
         valley_speed_data_x,
         valley_speed_data_y,
     )
+
 
 
 def none_ignoring_median(data):
@@ -347,7 +340,7 @@ def save_laps_to_pickle(laps: List[Lap]) -> str:
     local_timezone = datetime.now(timezone.utc).astimezone().tzinfo
     dt = datetime.now(tz=local_timezone)
     str_date_time = dt.strftime("%Y-%m-%d_%H_%M_%S")
-    storage_filename = "%s_%s.laps" % (str_date_time, get_safe_filename(laps[0].car_name()))
+    storage_filename = "%s_%s.laps" % (str_date_time, get_safe_filename(car_name(laps[0])))
     Path(storage_folder).mkdir(parents=True, exist_ok=True)
 
     path = os.path.join(os.getcwd(), storage_folder, storage_filename)
@@ -363,7 +356,7 @@ def save_laps_to_json(laps: List[Lap]) -> str:
     local_timezone = datetime.now(timezone.utc).astimezone().tzinfo
     dt = datetime.now(tz=local_timezone)
     str_date_time = dt.strftime("%Y-%m-%d_%H_%M_%S")
-    storage_filename = "%s_%s.json" % (str_date_time, get_safe_filename(laps[0].car_name()))
+    storage_filename = "%s_%s.json" % (str_date_time, get_safe_filename(car_name(laps[0])))
     Path(storage_folder).mkdir(parents=True, exist_ok=True)
 
     path = os.path.join(os.getcwd(), storage_folder, storage_filename)
@@ -516,7 +509,7 @@ def pd_data_frame_from_lap(
                     "diff": time_diff,
                     "timestamp": lap.lap_start_timestamp.strftime('%Y-%m-%d %H:%M:%S'),
                     "info": info,
-                    "car_name": lap.car_name(),
+                    "car_name": car_name(lap),
                     "fuelconsumed": "%d" % lap.fuel_consumed,
                     "fullthrottle": "%d"
                                     % (lap.full_throttle_ticks / lap.lap_ticks * 1000),
@@ -609,6 +602,23 @@ def get_race_line_coordinates_when_mode_is_active(lap: Lap, mode: str):
 
 
 CARS_CSV_FILENAME = "db/cars.csv"
+TRACKS_CSV_FILENAME = "db/course.csv"
+
+def get_track_list() -> List[Tuple[int, str]]:
+    tracks = []
+    # check if file exists
+    if not os.path.isfile(TRACKS_CSV_FILENAME):
+        logging.info("Could not find file %s" % TRACKS_CSV_FILENAME)
+        return tracks
+
+    # read csv from file
+    with open(TRACKS_CSV_FILENAME, 'r') as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        for row in csv_reader:
+            if row[0].isdigit():
+                tracks.append((int(row[0]),row[1]))
+
+    return tracks
 
 
 def get_car_name_for_car_id(car_id: int) -> str:
@@ -774,7 +784,7 @@ def get_peaks_and_valleys_sorted_tuple_list(lap: Lap):
         peak_speed_data_y,
         valley_speed_data_x,
         valley_speed_data_y,
-    ) = lap.get_speed_peaks_and_valleys()
+    ) = get_speed_peaks_and_valleys(lap)
 
     tuple_list = []
 
@@ -784,6 +794,14 @@ def get_peaks_and_valleys_sorted_tuple_list(lap: Lap):
     tuple_list.sort(key=lambda a: a[1])
 
     return tuple_list
+
+def find_speed_peaks_and_valleys(
+        lap: Lap, width: int = 100
+) -> tuple[list[int], list[int]]:
+    inv_data_speed = [i * -1 for i in lap.data_speed]
+    peaks, whatisthis = find_peaks(lap.data_speed, width=width)
+    valleys, whatisthis = find_peaks(inv_data_speed, width=width)
+    return list(peaks), list(valleys)
 
 
 def calculate_laps_left_on_fuel(current_lap, last_lap) -> float:

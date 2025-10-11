@@ -14,6 +14,8 @@ from gt7dashboard.gt7data import GTData
 from gt7dashboard.gt7lap import Lap
 from bokeh.models import MultiChoice
 
+from gt7dashboard.gt7laphelper import get_data_dict, get_speed_peaks_and_valleys
+
 if os.environ.get("GT7_TIMEFRAME_TO_SHOW") and os.environ.get("GT7_UPDATE_FREQUENCY_MS"):
     interval = int(os.environ.get("GT7_TIMEFRAME_TO_SHOW")) * 1000 / int(os.environ.get("GT7_UPDATE_FREQUENCY_MS"))
 
@@ -529,7 +531,7 @@ class RaceDiagram(object):
 
     def add_additional_lap_to_race_diagram(self, color: str, lap: Lap, visible: bool = True):
         source = self.add_lap_to_race_diagram(color, lap.title, visible)
-        source.data = lap.get_data_dict()
+        source.data = get_data_dict(lap)
         self.sources_additional_laps.append(source)
 
     def update_fastest_laps_variance(self, laps):
@@ -553,7 +555,7 @@ class RaceDiagram(object):
     def add_lap_to_race_diagram(self, color: str, legend: str, visible: bool = True):
 
         # Set empty data for avoiding warnings about missing columns
-        dummy_data = Lap().get_data_dict()
+        dummy_data = get_data_dict(Lap())
 
         source = ColumnDataSource(data=dummy_data)
 
@@ -726,7 +728,7 @@ def _add_peaks_and_valley_decorations_for_lap(
         peak_speed_data_y,
         valley_speed_data_x,
         valley_speed_data_y,
-    ) = lap.get_speed_peaks_and_valleys()
+    ) = get_speed_peaks_and_valleys(lap)
 
     decorations = []
 

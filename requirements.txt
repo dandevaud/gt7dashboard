@@ -4,3 +4,4 @@ tabulate~=0.8.10
 pandas~=2.2.3
 scipy~=1.15.1
 Minio~=7.2.16
+scikit-learn~=1.7.2

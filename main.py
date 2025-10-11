@@ -10,7 +10,6 @@ from bokeh.driving import linear
 from bokeh.layouts import layout
 from bokeh.models import (
     Select,
-    MultiSelect,
     Paragraph,
     ColumnDataSource,
     Button,
@@ -20,23 +19,24 @@ from bokeh.palettes import Plasma11 as palette
 from bokeh.plotting import curdoc
 from bokeh.plotting import figure
 
-from gt7dashboard import gt7communication, gt7diagrams, gt7help, gt7helper, gt7lap
-from gt7dashboard.gt7data import GTData
+from gt7dashboard import gt7communication, gt7diagrams, gt7help, gt7helper
 from gt7dashboard.gt7diagrams import get_speed_peak_and_valley_diagram
 
 from gt7dashboard.gt7help import get_help_div
 from gt7dashboard.gt7helper import (
     load_laps_from_pickle,
-    save_laps_to_pickle,
     list_lap_files_from_path,
     calculate_time_diff_by_distance, save_laps_to_json, load_laps_from_json,
 )
 from gt7dashboard.gt7lap import Lap
-from gt7dashboard.s3helper import upload_json_object
+from gt7dashboard.gt7laphelper import car_name, get_data_dict
+from gt7dashboard.s3helper import S3Client
+from tracks.gt7trackpage import track_clustering_tab
 
 # set logging level to debug
 logger = logging.getLogger('main.py')
 logger.setLevel(logging.DEBUG)
+s3Uploader = S3Client()
 
 
 def update_connection_info():
@@ -80,14 +80,14 @@ def update_race_lines(laps: List[Lap], reference_lap: Lap):
     global race_lines, race_lines_data
 
 
-    reference_lap_data = reference_lap.get_data_dict()
+    reference_lap_data = get_data_dict(reference_lap)
 
     for i, lap in enumerate(laps[:len(race_lines)]):
         logger.info(f"Updating Race Line for Lap {len(laps) -i} - {lap.title} and reference lap {reference_lap.title}")
 
-        race_lines[i].title.text = "Lap %d - %s (%s), Reference Lap: %s (%s)" % (len(laps) - i, lap.title, lap.car_name(), reference_lap.title, reference_lap.car_name())
+        race_lines[i].title.text = "Lap %d - %s (%s), Reference Lap: %s (%s)" % (len(laps) - i, lap.title, car_name(lap), reference_lap.title, car_name(reference_lap))
 
-        lap_data = lap.get_data_dict()
+        lap_data = get_data_dict(lap)
         race_lines_data[i][0].data_source.data = lap_data
         race_lines_data[i][1].data_source.data = lap_data
         race_lines_data[i][2].data_source.data = lap_data
@@ -105,8 +105,8 @@ def update_race_lines(laps: List[Lap], reference_lap: Lap):
 
 
 def update_header_line(div: Div, last_lap: Lap, reference_lap: Lap):
-    div.text = f"<p><b>Last Lap: {last_lap.title} ({last_lap.car_name()})<b></p>" \
-               f"<p><b>Reference Lap: {reference_lap.title} ({reference_lap.car_name()})<b></p>"
+    div.text = f"<p><b>Last Lap: {last_lap.title} ({car_name(last_lap)})<b></p>" \
+               f"<p><b>Reference Lap: {reference_lap.title} ({car_name(reference_lap)})<b></p>"
 
 def update_lap_change():
     """
@@ -153,7 +153,12 @@ def update_lap_change():
 
         update_header_line(div_header_line, last_lap, reference_lap)
         if os.environ.get("GT7_LOG_TO_S3", "false").lower() == "true":
-            upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
+            try:
+                s3Uploader.upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
+            except Exception as e:
+                logger.warning(f"Error uploading to S3: {e}, retrying")
+                s3Uploader.upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
+   
         
 
     logger.debug("Updating of %d laps" % len(laps))
@@ -200,18 +205,18 @@ def update_speed_velocity_graph(laps: List[Lap]):
     )
 
     if last_lap:
-        last_lap_data = last_lap.get_data_dict()
+        last_lap_data = get_data_dict(last_lap)
         race_diagram.source_last_lap.data = last_lap_data
         last_lap_race_line.data_source.data = last_lap_data
 
         if reference_lap and len(reference_lap.data_speed) > 0:
-            reference_lap_data = reference_lap.get_data_dict()
+            reference_lap_data = get_data_dict( reference_lap)
             race_diagram.source_time_diff.data = calculate_time_diff_by_distance(reference_lap, last_lap)
             race_diagram.source_reference_lap.data = reference_lap_data
             reference_lap_race_line.data_source.data = reference_lap_data
 
     if median_lap:
-        race_diagram.source_median_lap.data = median_lap.get_data_dict()
+        race_diagram.source_median_lap.data = get_data_dict(median_lap)
 
 
     s_race_line.legend.visible = False
@@ -420,7 +425,7 @@ def table_row_selection_callback(attrname, old, new):
         colors_index+=1
         lap_to_add = g_laps_stored[index]
         new_lap_data_source = race_diagram.add_lap_to_race_diagram(color, legend=g_laps_stored[index].title, visible=True)
-        new_lap_data_source.data = lap_to_add.get_data_dict()
+        new_lap_data_source.data = get_data_dict(lap_to_add)
 
 
 race_time_table.lap_times_source.selected.on_change('indices', table_row_selection_callback)
@@ -561,7 +566,8 @@ tab2 = TabPanel(child=l2, title="Race Lines")
 tab3 = TabPanel(child=l3, title="Race")
 tab4 = TabPanel(child=l4, title="Realtime")
 tab5 = TabPanel(child=l5, title="Debug")
-tabs = Tabs(tabs=[tab1, tab2, tab3, tab4,tab5], sizing_mode="stretch_both")
+tab6 = TabPanel(child=track_clustering_tab, title="Tracks")
+tabs = Tabs(tabs=[tab1, tab2, tab3, tab4,tab5,tab6], sizing_mode="stretch_both")
 
 curdoc().template =  """
 {% block contents %}

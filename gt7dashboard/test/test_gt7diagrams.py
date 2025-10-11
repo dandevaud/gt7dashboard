@@ -14,6 +14,7 @@ from gt7dashboard.gt7diagrams import (
     get_throttle_braking_race_line_diagram,
 )
 from gt7dashboard.gt7lap import Lap
+from gt7dashboard.gt7laphelper import get_data_dict
 
 
 class TestHelper(unittest.TestCase):
@@ -34,8 +35,8 @@ class TestHelper(unittest.TestCase):
         reference_lap = self.test_laps[0]
         last_lap = self.test_laps[1]
 
-        lap_data = last_lap.get_data_dict()
-        reference_lap_data = reference_lap.get_data_dict()
+        lap_data = get_data_dict(last_lap)
+        reference_lap_data = get_data_dict(reference_lap)
 
         throttle_line_data.data_source.data = lap_data
         breaking_line_data.data_source.data = lap_data
@@ -58,10 +59,10 @@ class TestHelper(unittest.TestCase):
     def helper_get_race_diagram(self):
         rd = gt7diagrams.RaceDiagram(600)
 
-        lap_data_1 = self.test_laps[0].get_data_dict()
-        lap_data_2 = self.test_laps[1].get_data_dict()
+        lap_data_1 = get_data_dict(self.test_laps[0])
+        lap_data_2 = get_data_dict(self.test_laps[1])
 
-        median_lap_data = gt7helper.get_median_lap(self.test_laps).get_data_dict()
+        median_lap_data = get_data_dict(gt7helper.get_median_lap(self.test_laps))
 
         rd.source_time_diff.data = gt7helper.calculate_time_diff_by_distance(
             self.test_laps[0], self.test_laps[1]
