@@ -5,16 +5,17 @@ from bokeh import colors
 from gt7dashboard import gt7helper
 from gt7dashboard.gt7lap import Lap
 from gt7dashboard.gt7laphelper import get_data_dict
-from tracks.gt7trackanalysis import analyse_tracks
+from tracks.gt7trackanalysis import TrackAnalysis
 from gt7dashboard.s3helper import S3Client
 import re
 from bokeh.plotting import figure
 import random
-from bokeh.colors import RGB
+
 
 
 filename_regex = r'([^_]*)_([^_]*)_([^_]*)_([^_]*).json'  # Placeholder regex to extract date from filename
 s3Client = S3Client()
+track_analysis = TrackAnalysis(s3client=s3Client)
 # Get S3 objects using S3Helper
 object_list = s3Client.list_objects()  # Assumes this returns a list of object names
 
@@ -88,6 +89,7 @@ selected_laps = []
 analyse_button = Button(label="Analyse Tracks", button_type="primary")
 plot_selection_button = Button(label="Plot Selected Laps", button_type="success")
 save_changes_button = Button(label="Save Changes", button_type="success")
+save_clusters_button = Button(label="Save Clusters", button_type="light")
 cluster_div = Row()
 
 
@@ -201,7 +203,7 @@ def on_analyse_button_click():
     try:
         analyse_button.disabled = True
         print("Analysing selected tracks...")
-        cluster_lap_map = analyse_tracks(source, table_data, track_clustering_tab)
+        cluster_lap_map = track_analysis.analyse_tracks(source, table_data, track_clustering_tab)
 
         cluster_raceline_figures = []
         track_assignment_form = None
@@ -226,12 +228,14 @@ def on_analyse_button_click():
         print("Analysis complete.")
 
 
+
 analyse_button.on_click(on_analyse_button_click)
 plot_selection_button.on_click(on_plot_selection_click)
 save_changes_button.on_click(save_changes)
+save_clusters_button.on_click(track_analysis.save_clusters)
 
 track_clustering_tab = layout([
-    [analyse_button, plot_selection_button, save_changes_button],
+    [analyse_button, plot_selection_button, save_changes_button, save_clusters_button],
     data_table,
     cluster_div
 ])
@@ -240,7 +244,7 @@ track_clustering_tab = layout([
 #  Setup the tabs
 tab1 = TabPanel(child=track_clustering_tab, title="Analysis")
 tab2 = TabPanel(child=track_clustering_tab, title="Clustering")
-tabs = Tabs(tabs=[tab1, tab2], sizing_mode="stretch_both")
+tracks_tabs = Tabs(tabs=[tab1, tab2], sizing_mode="stretch_both")
 
 
 
@@ -255,4 +259,4 @@ if __name__ == "__main__":
     {% endblock %}
     """
     curdoc().title = "Track Analysis"
-    curdoc().add_root(track_clustering_tab)
+    #curdoc().add_root(tracks_tabs)
