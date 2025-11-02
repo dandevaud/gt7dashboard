@@ -20,7 +20,7 @@
         "module": "bokeh",
         "args": [
             "serve",
-            "."
+            ".",
         ],
         "console": "integratedTerminal",
         "envFile": "${workspaceFolder}\\.env"
