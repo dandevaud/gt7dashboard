@@ -30,6 +30,7 @@ table_data = {
     "cluster_id": [],  # Placeholder for cluster IDs
 }
 track_list = gt7helper.get_track_list()
+car_list = gt7helper.get_car_name_list()
 
 def map_track_name_to_id(track_name):
     if track_name == "Unknown" or track_name == "":
@@ -48,13 +49,22 @@ def map_track_id_to_name(track_id):
             return name
     return None
 
+def map_car_id_to_name(car_id):
+    car_id = int(car_id)
+    if car_id < 0:
+        return "Unknown"
+    for tid, name in car_list:
+        if tid == car_id:
+            return name
+    return car_id
+
 for obj in object_list:
     match = re.search(filename_regex, obj)
     if match:
         table_data["object_name"].append(obj)
         table_data["date"].append(match.group(1))
         table_data["track_id"].append(map_track_id_to_name(match.group(2)))
-        table_data["car_id"].append(match.group(3))
+        table_data["car_id"].append(map_car_id_to_name(match.group(3)))
         table_data["lap"].append(match.group(4))
     else:
         table_data["object_name"].append(obj)
@@ -70,7 +80,7 @@ source = ColumnDataSource(data=table_data)
 columns = [
     TableColumn(field="date", title="Date", editor=CellEditor()),
     TableColumn(field="track_id", title="Track", editor=SelectEditor(options=[track[1] for track in track_list])),
-    TableColumn(field="car_id", title="Car Id", editor=CellEditor()),
+    TableColumn(field="car_id", title="Car", editor=CellEditor()),
     TableColumn(field="lap", title="Lap number", editor=CellEditor()),
     TableColumn(field="cluster_id", title="Cluster ID", editor=CellEditor()),
 ]

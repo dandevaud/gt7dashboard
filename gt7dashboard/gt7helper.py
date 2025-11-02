@@ -640,6 +640,20 @@ def get_car_name_for_car_id(car_id: int) -> str:
 
     return "CAR-ID-%d" % car_id
 
+def get_car_name_list() -> List[Tuple[int, str]]:
+    cars = []
+    # check if file exists
+    if not os.path.isfile(CARS_CSV_FILENAME):
+        logging.info("Could not find file %s" % CARS_CSV_FILENAME)
+
+    # read csv from file
+    with open(CARS_CSV_FILENAME, 'r') as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        for row in csv_reader:
+            if row[0].isdigit():
+                cars.append((int(row[0]),row[1]))
+    return cars
+
 
 def bokeh_tuple_for_list_of_lapfiles(lapfiles: List[LapFile]):
     tuples = [""]  # Use empty first option which is default
