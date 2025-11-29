@@ -1,7 +1,7 @@
 from bokeh.models import Button, TableColumn, DataTable, ColumnDataSource, TabPanel, Tabs, Select, Row, SelectEditor, CellEditor, Arrow, NormalHead
 from bokeh.layouts import layout, row, column
 from bokeh.io import curdoc
-from bokeh import colors
+from bokeh import colors, application
 from gt7dashboard import gt7helper
 from gt7dashboard.gt7lap import Lap
 from gt7dashboard.gt7laphelper import get_data_dict
@@ -11,6 +11,7 @@ import re
 from bokeh.plotting import figure
 import random
 
+app = application.Application
 
 
 filename_regex = r'([^_]*)_([^_]*)_([^_]*)_([^_]*).json'  # Placeholder regex to extract date from filename
@@ -97,6 +98,7 @@ data_table = DataTable(
 selected_laps = []
 
 analyse_button = Button(label="Analyse Tracks", button_type="primary")
+load_button = Button(label="Load selected in race diagrams", button_type="primary")
 plot_selection_button = Button(label="Plot Selected Laps", button_type="success")
 save_changes_button = Button(label="Save Changes", button_type="success")
 save_clusters_button = Button(label="Save Clusters", button_type="light")
@@ -176,6 +178,18 @@ def on_plot_selection_click():
     raceline_figure = get_raceline_figure(laps, title=f"Lap # {selected_indices}")
     track_clustering_tab.children[1] = row([data_table, raceline_figure], sizing_mode="stretch_both")
 
+def load_selected_laps():
+    selected_indices = source.selected.indices
+    laps = []
+    for selected_index in selected_indices:
+        obj_name = table_data["object_name"][selected_index]
+        print(f"Loading row index: {selected_index}, Object name: {obj_name}")
+        lap_data = s3Client.get_object(obj_name)
+        if not isinstance(lap_data, Lap):
+            print(f"Warning: Object {obj_name} is not a Lap instance.")
+            continue
+        laps.append(lap_data)
+    app.gt7comm.load_laps(laps, replace_other_laps=True)
 
 def create_cluster_dropdown(cluster_ids):
     options = [str(cid) for cid in cluster_ids]
@@ -243,9 +257,10 @@ analyse_button.on_click(on_analyse_button_click)
 plot_selection_button.on_click(on_plot_selection_click)
 save_changes_button.on_click(save_changes)
 save_clusters_button.on_click(track_analysis.save_clusters)
+load_button.on_click(load_selected_laps)
 
 track_clustering_tab = layout([
-    [analyse_button, plot_selection_button, save_changes_button, save_clusters_button],
+    [analyse_button, load_button, plot_selection_button, save_changes_button, save_clusters_button],
     data_table,
     cluster_div
 ])

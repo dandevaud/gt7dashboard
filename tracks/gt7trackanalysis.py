@@ -39,7 +39,6 @@ class TrackAnalysis:
         clusters = self.clusterer.cluster_laps(loaded_tracks)
         print(f"Clustered into {len(set(clusters))} clusters.")
         for i, obj_name in enumerate(selected_objects):
-            print(f"Track: {obj_name}, Cluster: {clusters[i]}") 
             # Update the data table with cluster IDs
             source.data["cluster_id"][selected_indices[i]] = clusters[i]
             cluster_id = clusters[i].item()
