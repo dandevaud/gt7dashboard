@@ -31,8 +31,12 @@ class TrackAnalysis:
         selected_objects = [table_data["object_name"][i] for i in selected_indices]
 
         loaded_tracks = []
-        cluster_lap_map = {}    
+        cluster_lap_map = {}   
+        print(f"Loading {len(selected_objects)} selected tracks from S3...") 
+        i = 0
         for obj_name in selected_objects:
+            print(f"Progress {'{:.0%}'.format(i / len(selected_objects))}")
+            i += 1            
             self.load_lap_from_s3(loaded_tracks, obj_name)
 
         print(f"Loaded {len(loaded_tracks)} tracks for analysis.")

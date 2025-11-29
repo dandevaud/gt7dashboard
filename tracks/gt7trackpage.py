@@ -192,9 +192,10 @@ def load_selected_laps():
     app.gt7comm.load_laps(laps, replace_other_laps=True)
 
 def create_cluster_dropdown(cluster_ids):
-    options = [str(cid) for cid in cluster_ids]
+    options = [str(cid) for cid in sorted(cluster_ids)]
     select = Select(title="Select Cluster ID:", value="", options=options)
     return select
+
 def update_object_name_with_track(selected_track, obj_name):
         new_obj_name = re.sub(r'([^_]*)_([^_]*)_([^_]*)_([^_]*)\.json', fr'\g<1>_{selected_track}_\g<3>_\g<4>.json', obj_name)
         print(f"Renaming object {obj_name} to {new_obj_name}")

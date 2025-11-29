@@ -39,7 +39,10 @@ class TrackClusterer:
     def estimate_best_k(self, features, max_k=10):
         best_k = 2
         best_score = -1
-        for k in range(2, min(max_k, len(features))):
+        print("Estimating best k using silhouette score...")
+        optimal_k = min(max_k, len(features))
+        for k in range(2, optimal_k):
+            print(f"Progress {'{:.0%}'.format((k-1)/(optimal_k-1))}")
             kmeans = KMeans(n_clusters=k, random_state=42, algorithm='elkan')
             labels = kmeans.fit_predict(features)
             score = silhouette_score(features, labels)
