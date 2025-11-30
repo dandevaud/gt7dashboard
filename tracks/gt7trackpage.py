@@ -201,15 +201,15 @@ def update_object_name_with_track(selected_track, obj_name):
         print(f"Renaming object {obj_name} to {new_obj_name}")
         s3Client.rename_object(obj_name, new_obj_name)
 
-def create_cluster_trackAssignment_form(cluster_id, cluster_lap_map):
+def create_cluster_trackAssignment_form(cluster_id, cluster_lap_map: dict[int, list[dict[str, Lap | str]]]):
     options = gt7helper.get_track_list()
     select = Select(title="Select Track Assignment:", value="", options=options)
     track_assignment_save_button = Button(label="Save Track Assignment", button_type="warning")
     def on_track_assignment_save_click():
         selected_track = select.value
         print(f"Assigning Track {selected_track} to Cluster {cluster_id}")
-        for obj_name in cluster_lap_map.get(cluster_id, []):
-                update_object_name_with_track(selected_track, obj_name)    
+        for lapdata in cluster_lap_map.get(cluster_id, []):
+                update_object_name_with_track(selected_track, lapdata["name"])    
     track_assignment_save_button.on_click(on_track_assignment_save_click)
     return column([select, track_assignment_save_button], sizing_mode="stretch_both")
 
@@ -235,11 +235,17 @@ def on_analyse_button_click():
 
         cluster_select = create_cluster_dropdown(cluster_lap_map.keys())
         def on_cluster_select_change(attr, old, new):
+            print(f"Cluster selected: {new}")
             nonlocal cluster_raceline_figures, track_assignment_form
+            cluster_div.children = [cluster_select]
             selected_cluster_id = int(new)
             selected_laps = cluster_lap_map.get(selected_cluster_id, [])
-            loaded_laps = get_lap_data_from_object_names(selected_laps)
+            print(f"Loading laps in cluster {selected_cluster_id}")
+            loaded_laps = [lapdata["Lap"] for lapdata in selected_laps]
+            print(f"Loaded {len(loaded_laps)} laps for cluster {selected_cluster_id}")
+            print(f"Generating raceline figure for cluster {selected_cluster_id}")
             cluster_raceline_figures = get_raceline_figure(loaded_laps, title=f"Cluster {selected_cluster_id}")
+            print(f"Creating track assignment form for cluster {selected_cluster_id}")
             track_assignment_form = create_cluster_trackAssignment_form(selected_cluster_id, cluster_lap_map)
             cluster_div.children = [cluster_select, track_assignment_form, cluster_raceline_figures]
 
