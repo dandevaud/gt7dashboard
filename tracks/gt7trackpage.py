@@ -19,7 +19,6 @@ s3Client = S3Client()
 track_analysis = TrackAnalysis(s3client=s3Client)
 # Get S3 objects using S3Helper
 object_list = s3Client.list_objects()  # Assumes this returns a list of object names
-
 # Prepare data for DataTable
 # Parse object_list using regex and build a list of dicts for each object
 table_data = {
@@ -30,7 +29,7 @@ table_data = {
     "lap": [],
     "cluster_id": [],  # Placeholder for cluster IDs
 }
-track_list = gt7helper.get_track_list()
+track_list = sorted(gt7helper.get_track_list(),key=lambda x: x[1])
 car_list = gt7helper.get_car_name_list()
 
 def map_track_name_to_id(track_name):
@@ -202,8 +201,7 @@ def update_object_name_with_track(selected_track, obj_name):
         s3Client.rename_object(obj_name, new_obj_name)
 
 def create_cluster_trackAssignment_form(cluster_id, cluster_lap_map: dict[int, list[dict[str, Lap | str]]]):
-    options = gt7helper.get_track_list()
-    select = Select(title="Select Track Assignment:", value="", options=sorted(options, key=lambda x: x[2]))
+    select = Select(title="Select Track Assignment:", value="", options=track_list)
     track_assignment_save_button = Button(label="Save Track Assignment", button_type="warning")
     def on_track_assignment_save_click():
         selected_track = select.value
@@ -230,7 +228,7 @@ def on_analyse_button_click():
         print("Analysing selected tracks...")
         cluster_lap_map = track_analysis.analyse_tracks(source, table_data, track_clustering_tab)
         cluster_select = create_cluster_dropdown(cluster_lap_map.keys())
-        
+
         def on_cluster_select_change(attr, old, new):              
             cluster_raceline_figures = []
             track_assignment_form = None         
@@ -239,7 +237,7 @@ def on_analyse_button_click():
             selected_cluster_id = int(new)
             selected_laps = cluster_lap_map.get(selected_cluster_id, [])
             print(f"Loading laps in cluster {selected_cluster_id}")
-            loaded_laps = [lapdata["Lap"] for lapdata in selected_laps]
+            loaded_laps = [lapdata["lap"] for lapdata in selected_laps]
             print(f"Loaded {len(loaded_laps)} laps for cluster {selected_cluster_id}")
             print(f"Generating raceline figure for cluster {selected_cluster_id}")
             cluster_raceline_figures = get_raceline_figure(loaded_laps, title=f"Cluster {selected_cluster_id}")
