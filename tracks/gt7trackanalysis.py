@@ -20,7 +20,7 @@ class TrackAnalysis:
         loaded_tracks.append(lap_data)
 
 
-    def analyse_tracks(self, source, table_data, track_tab):
+    def analyse_tracks(self, source, table_data, track_tab) -> dict[int, list[dict[str, Lap | str]]]:
         # Get selected indices from the DataTable
         selected_indices = source.selected.indices
         if not selected_indices:
@@ -30,12 +30,12 @@ class TrackAnalysis:
         # Get selected object names
         selected_objects = [table_data["object_name"][i] for i in selected_indices]
 
-        loaded_tracks = []
+        loaded_tracks : list[Lap] = []
         cluster_lap_map = {}   
         print(f"Loading {len(selected_objects)} selected tracks from S3...") 
         i = 0
         for obj_name in selected_objects:
-            print(f"Progress {'{:.0%}'.format(i / len(selected_objects))}")
+            print(f"Progress {'{:.0%}'.format(i / len(selected_objects))}", end='\r')
             i += 1            
             self.load_lap_from_s3(loaded_tracks, obj_name)
 
@@ -48,7 +48,7 @@ class TrackAnalysis:
             cluster_id = clusters[i].item()
             if cluster_id not in cluster_lap_map:
                 cluster_lap_map[cluster_id] = []
-            cluster_lap_map[cluster_id].append(obj_name)
+            cluster_lap_map[cluster_id].append({"name": obj_name, "lap": loaded_tracks[i]})
         source.trigger('data', source.data, source.data)  # Refresh the table display
 
         return cluster_lap_map

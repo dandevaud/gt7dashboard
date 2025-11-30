@@ -19,7 +19,6 @@ s3Client = S3Client()
 track_analysis = TrackAnalysis(s3client=s3Client)
 # Get S3 objects using S3Helper
 object_list = s3Client.list_objects()  # Assumes this returns a list of object names
-
 # Prepare data for DataTable
 # Parse object_list using regex and build a list of dicts for each object
 table_data = {
@@ -30,7 +29,7 @@ table_data = {
     "lap": [],
     "cluster_id": [],  # Placeholder for cluster IDs
 }
-track_list = gt7helper.get_track_list()
+track_list = sorted(gt7helper.get_track_list(),key=lambda x: x[1])
 car_list = gt7helper.get_car_name_list()
 
 def map_track_name_to_id(track_name):
@@ -201,15 +200,14 @@ def update_object_name_with_track(selected_track, obj_name):
         print(f"Renaming object {obj_name} to {new_obj_name}")
         s3Client.rename_object(obj_name, new_obj_name)
 
-def create_cluster_trackAssignment_form(cluster_id, cluster_lap_map):
-    options = gt7helper.get_track_list()
-    select = Select(title="Select Track Assignment:", value="", options=options)
+def create_cluster_trackAssignment_form(cluster_id, cluster_lap_map: dict[int, list[dict[str, Lap | str]]]):
+    select = Select(title="Select Track Assignment:", value="", options=track_list)
     track_assignment_save_button = Button(label="Save Track Assignment", button_type="warning")
     def on_track_assignment_save_click():
         selected_track = select.value
         print(f"Assigning Track {selected_track} to Cluster {cluster_id}")
-        for obj_name in cluster_lap_map.get(cluster_id, []):
-                update_object_name_with_track(selected_track, obj_name)    
+        for lapdata in cluster_lap_map.get(cluster_id, []):
+                update_object_name_with_track(selected_track, lapdata["name"])    
     track_assignment_save_button.on_click(on_track_assignment_save_click)
     return column([select, track_assignment_save_button], sizing_mode="stretch_both")
 
@@ -229,18 +227,23 @@ def on_analyse_button_click():
         analyse_button.disabled = True
         print("Analysing selected tracks...")
         cluster_lap_map = track_analysis.analyse_tracks(source, table_data, track_clustering_tab)
-
-        cluster_raceline_figures = []
-        track_assignment_form = None
-
         cluster_select = create_cluster_dropdown(cluster_lap_map.keys())
-        def on_cluster_select_change(attr, old, new):
-            nonlocal cluster_raceline_figures, track_assignment_form
+
+        def on_cluster_select_change(attr, old, new):              
+            cluster_raceline_figures = []
+            track_assignment_form = None         
+            print(f"Cluster selected: {new}")
+            cluster_div.children = [cluster_select]
             selected_cluster_id = int(new)
             selected_laps = cluster_lap_map.get(selected_cluster_id, [])
-            loaded_laps = get_lap_data_from_object_names(selected_laps)
+            print(f"Loading laps in cluster {selected_cluster_id}")
+            loaded_laps = [lapdata["lap"] for lapdata in selected_laps]
+            print(f"Loaded {len(loaded_laps)} laps for cluster {selected_cluster_id}")
+            print(f"Generating raceline figure for cluster {selected_cluster_id}")
             cluster_raceline_figures = get_raceline_figure(loaded_laps, title=f"Cluster {selected_cluster_id}")
+            print(f"Creating track assignment form for cluster {selected_cluster_id}")
             track_assignment_form = create_cluster_trackAssignment_form(selected_cluster_id, cluster_lap_map)
+            print("Updating cluster div")
             cluster_div.children = [cluster_select, track_assignment_form, cluster_raceline_figures]
 
         cluster_select.on_change("value", on_cluster_select_change)
