@@ -203,7 +203,7 @@ def update_object_name_with_track(selected_track, obj_name):
 
 def create_cluster_trackAssignment_form(cluster_id, cluster_lap_map: dict[int, list[dict[str, Lap | str]]]):
     options = gt7helper.get_track_list()
-    select = Select(title="Select Track Assignment:", value="", options=options)
+    select = Select(title="Select Track Assignment:", value="", options=sorted(options, key=lambda x: x[2]))
     track_assignment_save_button = Button(label="Save Track Assignment", button_type="warning")
     def on_track_assignment_save_click():
         selected_track = select.value
@@ -229,14 +229,12 @@ def on_analyse_button_click():
         analyse_button.disabled = True
         print("Analysing selected tracks...")
         cluster_lap_map = track_analysis.analyse_tracks(source, table_data, track_clustering_tab)
-
-        cluster_raceline_figures = []
-        track_assignment_form = None
-
         cluster_select = create_cluster_dropdown(cluster_lap_map.keys())
-        def on_cluster_select_change(attr, old, new):
+        
+        def on_cluster_select_change(attr, old, new):              
+            cluster_raceline_figures = []
+            track_assignment_form = None         
             print(f"Cluster selected: {new}")
-            nonlocal cluster_raceline_figures, track_assignment_form
             cluster_div.children = [cluster_select]
             selected_cluster_id = int(new)
             selected_laps = cluster_lap_map.get(selected_cluster_id, [])
