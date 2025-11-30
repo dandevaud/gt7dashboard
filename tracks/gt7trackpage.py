@@ -243,6 +243,7 @@ def on_analyse_button_click():
             cluster_raceline_figures = get_raceline_figure(loaded_laps, title=f"Cluster {selected_cluster_id}")
             print(f"Creating track assignment form for cluster {selected_cluster_id}")
             track_assignment_form = create_cluster_trackAssignment_form(selected_cluster_id, cluster_lap_map)
+            print("Updating cluster div")
             cluster_div.children = [cluster_select, track_assignment_form, cluster_raceline_figures]
 
         cluster_select.on_change("value", on_cluster_select_change)
