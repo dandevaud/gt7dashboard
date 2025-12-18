@@ -28,7 +28,8 @@ class Lap:
         self.tires_spinning_ticks = 0
         # Data points with value for every tick
         self.data_throttle = []
-        self.data_braking = []
+        self.data_braking = []        
+        self.data_braking_abs = []
         self.data_steering = []
         self.data_coasting = []
         self.data_speed = []

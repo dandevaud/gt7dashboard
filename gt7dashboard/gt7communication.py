@@ -213,6 +213,7 @@ class GT7Communication(Thread):
             self.current_lap.tires_overheated_ticks += 1
 
         self.current_lap.data_braking.append(data.brake)
+        self.current_lap.data_braking_abs.append(1 if data.unfiltered_brake - data.brake > 0.1   else 0)
         self.current_lap.data_throttle.append(data.throttle)
         self.current_lap.data_steering.append(data.wheel_rotation)
         self.current_lap.data_speed.append(data.car_speed)

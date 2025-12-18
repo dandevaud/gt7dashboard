@@ -135,6 +135,7 @@ def get_raceline_figure(laps: list[Lap], title: str):
         height=250,
         active_drag="box_zoom",
         )
+
         for lap in laps:
             lap_data  =  get_data_dict(lap)
             color=colors.named.__all__[random.randint(0, len(colors.named.__all__)-1)]
@@ -160,6 +161,10 @@ def get_raceline_figure(laps: list[Lap], title: str):
                 color=color,
                 source=ColumnDataSource(data=lap_data)
             )
+        
+        # We set this to true, since maps appear flipped in the game
+        # compared to their actual coordinates
+        s_race_line.y_range.flipped = True
         return s_race_line
 
 def on_plot_selection_click():
