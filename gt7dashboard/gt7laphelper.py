@@ -30,6 +30,7 @@ def get_data_dict(self, distance_mode=True) -> dict[str, list]:
     data = {
         "throttle": self.data_throttle,
         "brake": self.data_braking,
+        "brake_abs": self.data_braking_abs,
         "speed": self.data_speed,
         "time": self.data_time,
         "tires": self.data_tires,

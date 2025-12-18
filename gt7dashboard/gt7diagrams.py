@@ -421,7 +421,8 @@ class RaceDiagram(object):
 
         self.source_braking_throttle = ColumnDataSource(data={
             "date_time": [],
-            "brake": [],
+            "brake": [],            
+            "brake_abs": [],
             "throttle": [],
             "steering": []})
         
@@ -506,6 +507,16 @@ class RaceDiagram(object):
         self.braking_throttle_lines.append(
             self.f_braking_throttle.line(
                 x="date_time",
+                y="brake_abs",
+                source=self.source_braking_throttle,
+                line_width=2,
+                color="orange",
+                line_alpha=1,
+                legend_label="ABS",
+            ))
+        self.braking_throttle_lines.append(
+            self.f_braking_throttle.line(
+                x="date_time",
                 y="throttle",
                 source=self.source_braking_throttle,
                 line_width=2,
@@ -547,7 +558,7 @@ class RaceDiagram(object):
         """
         if debug_data is None or not interval:
             return
-        new_brake_throttle = {"date_time": [datetime.now()], "brake": [debug_data.brake], "throttle": [debug_data.throttle], "steering": [debug_data.wheel_rotation]}
+        new_brake_throttle = {"date_time": [datetime.now()], "brake": [debug_data.brake], "brake_abs": [debug_data.brake_abs], "throttle": [debug_data.throttle], "steering": [debug_data.wheel_rotation]}
         new_row = {key: [getattr(debug_data, key)] for key in self.source_debug.data.keys()}
         self.source_braking_throttle.stream(new_brake_throttle, int(interval))
         self.source_debug.stream(new_row, int(interval))
@@ -591,7 +602,7 @@ class RaceDiagram(object):
             line_alpha=1,
             visible=visible
         ))
-
+        
         self.coasting_lines.append(self.f_coasting.line(
             x="distance",
             y="coast",

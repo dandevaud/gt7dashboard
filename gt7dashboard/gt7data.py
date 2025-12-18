@@ -97,8 +97,9 @@ class GTData:
     sway = .0  # sway
     heave = .0  # heave
     surge = .0  # surge
-    unfiltered_throttle = 0  # filtered throttle
-    unfiltered_brake = 0  # filtered brake
+    filtered_throttle = 0  # filtered throttle
+    filtered_brake = 0  # filtered brake
+    brake_abs = 0  # ABS brake value
     unknown_9 = 0  
     unknown_10 = 0
     unknown_vector_1_1 = .0  # 0x140 = ???
@@ -247,8 +248,8 @@ class GTData:
             self.heave = struct.unpack('f', ddata[0x134:0x134+4])[0]  # heave
             self.surge = struct.unpack('f', ddata[0x138:0x138+4])[0]  # surge
         if len(ddata) >= 0x158:
-            self.unfiltered_throttle = struct.unpack('B', ddata[0x13C:0x13C+1])[0]  # filtered throttle
-            self.unfiltered_brake = struct.unpack('B', ddata[0x13D:0x13D+1])[0]  # filtered brake
+            self.filtered_throttle = struct.unpack('B', ddata[0x13C:0x13C+1])[0] / 2.55  # filtered throttle
+            self.filtered_brake = struct.unpack('B', ddata[0x13D:0x13D+1])[0] / 2.55  # filtered brake
             self.unknown_9 = struct.unpack('B', ddata[0x13E:0x13E+1])[0]  
             self.unknown_10 = struct.unpack('B', ddata[0x13F:0x13F+1])[0]
             self.unknown_vector_1_1 = struct.unpack('f', ddata[0x140:0x140+4])[0]  # 0x140 = ???
@@ -257,6 +258,7 @@ class GTData:
             self.unknown_vector_1_4 = struct.unpack('f', ddata[0x14C:0x14C+4])[0] # 0x14C = ???
             self.energy_recovery = struct.unpack('f', ddata[0x150:0x150+4])[0]  # energy recovery
             self.unknown_15 = struct.unpack('f', ddata[0x154:0x154+4])[0]  # 0x154 = ???
+            self.brake_abs = 0 if self.brake == self.filtered_brake else (self.brake - self.filtered_brake ) / (100 - self.filtered_brake) * 100
             
     def to_json(self):
         return json.dumps(self, indent=4, sort_keys=True, default=str)
