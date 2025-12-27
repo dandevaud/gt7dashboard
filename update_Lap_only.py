@@ -50,14 +50,13 @@ def update_lap_change():
 
         last_lap = laps[0]        
 
-        if os.environ.get("GT7_LOG_TO_S3", "false").lower() == "true":
-            print("Uploading last lap to S3...")
-            try:
-                s3Uploader.upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
-                print("Upload successful.")
-            except Exception as e:
-                logger.warning(f"Error uploading to S3: {e}, retrying")
-                s3Uploader.upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
+        print("Uploading last lap to S3...")
+        try:
+            s3Uploader.upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
+            print("Upload successful.")
+        except Exception as e:
+            logger.warning(f"Error uploading to S3: {e}, retrying")
+            s3Uploader.upload_json_object(last_lap, f"{last_lap.lap_start_timestamp}_{last_lap.track_id}_{last_lap.car_id}_{last_lap.number}.json")
     g_laps_stored = laps.copy()
     g_telemetry_update_needed = False
     
