@@ -1,4 +1,34 @@
+from array import array
 from datetime import datetime
+
+
+# Per-tick telemetry attributes and the array typecode they are stored with.
+# Storing these as Python lists uses a boxed PyObject per entry (~28 bytes each);
+# using array.array reduces this to the raw value size and keeps memory bounded.
+FLOAT_DATA_ATTRIBUTES = (
+    "data_throttle",
+    "data_braking",
+    "data_braking_abs",
+    "data_steering",
+    "data_coasting",
+    "data_speed",
+    "data_time",
+    "data_rpm",
+    "data_tires",
+    "data_position_x",
+    "data_position_y",
+    "data_position_z",
+    "data_boost",
+    "data_rotation_yaw",
+    "data_absolute_yaw_rate_per_second",
+)
+INT_DATA_ATTRIBUTES = (
+    "data_gear",
+)
+
+# Attribute name to array typecode
+DATA_ATTRIBUTE_TYPECODES = {name: "d" for name in FLOAT_DATA_ATTRIBUTES}
+DATA_ATTRIBUTE_TYPECODES.update({name: "i" for name in INT_DATA_ATTRIBUTES})
 
 
 class Lap:
@@ -27,29 +57,13 @@ class Lap:
         self.tires_overheated_ticks = 0
         self.tires_spinning_ticks = 0
         # Data points with value for every tick
-        self.data_throttle = []
-        self.data_braking = []        
-        self.data_braking_abs = []
-        self.data_steering = []
-        self.data_coasting = []
-        self.data_speed = []
-        self.data_time = []
-        self.data_rpm = []
-        self.data_gear = []
-        self.data_tires = []
-        # Positions on x,y,z
-        self.data_position_x = []
-        self.data_position_y = []
-        self.data_position_z = []
+        # Stored as array.array to save memory (see DATA_ATTRIBUTE_TYPECODES)
+        for _name, _typecode in DATA_ATTRIBUTE_TYPECODES.items():
+            setattr(self, _name, array(_typecode))
         # Fuel
         self.fuel_at_start = 0
         self.fuel_at_end = -1
         self.fuel_consumed = -1
-        # Boost
-        self.data_boost = []
-        # Yaw Rate
-        self.data_rotation_yaw = []
-        self.data_absolute_yaw_rate_per_second = []
         # Car
         self.car_id = 0
 

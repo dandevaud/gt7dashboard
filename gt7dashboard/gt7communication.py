@@ -19,6 +19,10 @@ from gt7dashboard.gt7helper import seconds_to_lap_time
 from gt7dashboard.gt7lap import Lap
 from gt7dashboard.gt7data import GTData
 
+# Maximum number of laps kept in memory. Older laps are dropped to bound memory usage.
+MAX_LAPS = 30
+
+
 class HeartbeatCheckMode(Enum):
     A = 'A'
     B = 'B'
@@ -304,6 +308,10 @@ class GT7Communication(Thread):
         # TODO Correct this comment, this is about Laptime not lap numbers
         if self.current_lap.lap_finish_time > 0 and len(self.current_lap.data_speed) > 0:
             self.laps.insert(0, self.current_lap)
+
+            # Bound the amount of laps kept in memory to avoid unbounded growth
+            if len(self.laps) > MAX_LAPS:
+                del self.laps[MAX_LAPS:]
 
             # Make a copy of this lap and call the callback function if set
             if self.lap_callback_function:

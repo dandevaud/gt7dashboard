@@ -1,6 +1,7 @@
 import pickle
 import unittest
 import os
+from array import array
 
 from gt7dashboard.gt7helper import calculate_remaining_fuel, format_laps_to_table, calculate_time_diff_by_distance, \
     get_n_fastest_laps_within_percent_threshold_ignoring_replays
@@ -358,9 +359,9 @@ class TestLaps(unittest.TestCase):
 
     def test_save_laps_to_json(self):
         l1 = Lap()
-        l1.data_boost = [0.6, 0.7, 0.9]
+        l1.data_boost = array('d', [0.6, 0.7, 0.9])
         l2 = Lap()
-        l2.data_boost = [2.6, 2.7, 3.9]
+        l2.data_boost = array('d', [2.6, 2.7, 3.9])
 
         laps = [l1, l2]
         json_path = gt7helper.save_laps_to_json(laps)

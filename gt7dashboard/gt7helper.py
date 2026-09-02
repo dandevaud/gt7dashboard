@@ -1,6 +1,7 @@
 import csv
 import itertools
 import json
+from array import array
 import logging
 import os
 import pickle
@@ -17,7 +18,7 @@ from scipy.signal import find_peaks
 from tabulate import tabulate
 
 from gt7dashboard.gt7data import GTData
-from gt7dashboard.gt7lap import Lap
+from gt7dashboard.gt7lap import Lap, DATA_ATTRIBUTE_TYPECODES
 from gt7dashboard import gt7helper
 from gt7dashboard.gt7laphelper import car_name
 
@@ -327,6 +328,10 @@ def load_laps_from_json(json_file):
     for lap_data in data:
         lap = Lap()
         lap.__dict__.update(lap_data)
+        # Convert per-tick lists from the JSON file back to memory-efficient arrays
+        for key, typecode in DATA_ATTRIBUTE_TYPECODES.items():
+            if key in lap_data and isinstance(lap_data[key], list):
+                setattr(lap, key, array(typecode, lap_data[key]))
         for key, value in lap_data.items():
             if key.endswith('_timestamp') and isinstance(value, str):
                 value = datetime.fromisoformat(value)
@@ -350,6 +355,21 @@ def save_laps_to_pickle(laps: List[Lap]) -> str:
 
     return path
 
+def _lap_dict_for_json(lap: Lap) -> dict:
+    """Return a lap dict suitable for JSON serialization.
+
+    Per-tick telemetry is stored as array.array in memory for efficiency, but
+    these need to be converted back to plain lists to be JSON-serializable.
+    """
+    result = {}
+    for key, value in lap.__dict__.items():
+        if key in DATA_ATTRIBUTE_TYPECODES:
+            result[key] = list(value)
+        else:
+            result[key] = value
+    return result
+
+
 def save_laps_to_json(laps: List[Lap]) -> str:
 
     storage_folder = "data"
@@ -362,7 +382,7 @@ def save_laps_to_json(laps: List[Lap]) -> str:
     path = os.path.join(os.getcwd(), storage_folder, storage_filename)
 
     with open(path, "w") as f:
-        json.dump([ob.__dict__ for ob in laps], f, default=str)
+        json.dump([_lap_dict_for_json(ob) for ob in laps], f, default=str)
 
     return path
 
@@ -438,7 +458,7 @@ def get_median_lap(laps: List[Lap]) -> Lap:
         if isinstance(getattr(laps[0], val), datetime):
             continue
 
-        if isinstance(getattr(laps[0], val), list):
+        if isinstance(getattr(laps[0], val), (list, array)):
             median_attribute = [
                 none_ignoring_median(k)
                 for k in itertools.zip_longest(*attributes, fillvalue=None)
