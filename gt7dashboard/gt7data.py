@@ -109,6 +109,16 @@ class GTData:
     unknown_vector_1_4 = .0 # 0x14C = ???
     energy_recovery = .0  # energy recovery
     unknown_15 = .0  # 0x154 = ???
+    surface_type_raw = ""  # 4 ASCII chars (FL, FR, RL, RR)
+    surface_type_fl = ""  # front-left surface code
+    surface_type_fr = ""  # front-right surface code
+    surface_type_rl = ""  # rear-left surface code
+    surface_type_rr = ""  # rear-right surface code
+    live_lap_time = 0  # current lap timer in ms (packet C)
+    wheel_steering_angle_fl = .0  # front-left wheel steering angle (rad)
+    wheel_steering_angle_fr = .0  # front-right wheel steering angle (rad)
+    wheelbase = .0  # wheelbase in meters (packet C)
+    car_category = ""  # 4-char category code, null-terminated
 
     def get_attributes():
         members = [attr for attr in dir(GTData) if not callable(getattr(GTData, attr)) and not attr.startswith("__")]
@@ -261,6 +271,19 @@ class GTData:
             self.energy_recovery = struct.unpack('f', ddata[0x150:0x150+4])[0]  # energy recovery
             self.unknown_15 = struct.unpack('f', ddata[0x154:0x154+4])[0]  # 0x154 = ???
             self.brake_abs = 0 if self.brake == self.filtered_brake else (self.brake - self.filtered_brake ) / (100 - self.filtered_brake) * 100
+
+        if len(ddata) >= 0x170:
+            surface_raw = struct.unpack('4s', ddata[0x158:0x158+4])[0]
+            self.surface_type_raw = surface_raw.decode('ascii', errors='replace')
+            self.surface_type_fl = self.surface_type_raw[0:1]
+            self.surface_type_fr = self.surface_type_raw[1:2]
+            self.surface_type_rl = self.surface_type_raw[2:3]
+            self.surface_type_rr = self.surface_type_raw[3:4]
+            self.live_lap_time = struct.unpack('i', ddata[0x15C:0x15C+4])[0]
+            self.wheel_steering_angle_fl = struct.unpack('f', ddata[0x160:0x160+4])[0]
+            self.wheel_steering_angle_fr = struct.unpack('f', ddata[0x164:0x164+4])[0]
+            self.wheelbase = struct.unpack('f', ddata[0x168:0x168+4])[0]
+            self.car_category = struct.unpack('4s', ddata[0x16C:0x16C+4])[0].split(b'\x00', 1)[0].decode('ascii', errors='replace')
             
     def to_json(self):
         return json.dumps(self, indent=4, sort_keys=True, default=str)

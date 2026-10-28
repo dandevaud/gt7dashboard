@@ -27,6 +27,7 @@ class HeartbeatCheckMode(Enum):
     A = 'A'
     B = 'B'
     Tilde = '~'
+    C = 'C'
 
 class Session():
     def __init__(self):
@@ -46,6 +47,8 @@ def get_heartbeat_check_mode_from_environment() -> HeartbeatCheckMode:
         return HeartbeatCheckMode.A
     elif s == 'B':
         return HeartbeatCheckMode.B
+    elif s == 'C':
+        return HeartbeatCheckMode.C
     elif s == '~' or s == 'TILDE':
         return HeartbeatCheckMode.Tilde
     else:
@@ -358,6 +361,8 @@ def get_iv(self, iv1):
         iv2 = iv1 ^ 0xDEADBEAF
     elif (self._heartbeat_check_mode == HeartbeatCheckMode.Tilde):
         iv2 = iv1 ^ 0x55FABB4F
+    elif (self._heartbeat_check_mode == HeartbeatCheckMode.C):
+        iv2 = iv1 ^ 0xDEADBEEF
     else:
         iv2 = iv1 ^ 0xDEADBEEF
     return iv2

@@ -443,22 +443,32 @@ def get_median_lap(laps: List[Lap]) -> Lap:
     if len(laps) == 0:
         return median_lap
 
-    for val in vars(laps[0]):
+    lap_attribute_names = {
+        key
+        for lap in laps
+        for key in vars(lap).keys()
+        if key != "options" and not key.startswith("_")
+    }
+
+    for val in lap_attribute_names:
         attributes = []
+        reference_attr = None
         for lap in laps:
-            if val == "options":
+            if not hasattr(lap, val):
                 continue
             attr = getattr(lap, val)
+            if reference_attr is None:
+                reference_attr = attr
             # FIXME why is it sometimes string AND int?
             if not isinstance(attr, str) and attr != "" and attr != []:
-                attributes.append(getattr(lap, val))
+                attributes.append(attr)
 
         if len(attributes) == 0:
             continue
-        if isinstance(getattr(laps[0], val), datetime):
+        if isinstance(reference_attr, datetime):
             continue
 
-        if isinstance(getattr(laps[0], val), (list, array)):
+        if isinstance(reference_attr, (list, array)):
             median_attribute = [
                 none_ignoring_median(k)
                 for k in itertools.zip_longest(*attributes, fillvalue=None)
@@ -611,6 +621,7 @@ TRACKS_CSV_FILENAME = "db/course.csv"
 
 _tracks_cache: List[Tuple[int, str]] | None = None
 _cars_map_cache: dict[int, str] | None = None
+_cars_map_cache_filename: str | None = None
 
 def get_track_list() -> List[Tuple[int, str]]:
     global _tracks_cache
@@ -634,14 +645,15 @@ def get_track_list() -> List[Tuple[int, str]]:
 
 
 def _get_cars_map() -> dict[int, str]:
-    global _cars_map_cache
-    if _cars_map_cache is not None:
+    global _cars_map_cache, _cars_map_cache_filename
+    if _cars_map_cache is not None and _cars_map_cache_filename == CARS_CSV_FILENAME:
         return _cars_map_cache
 
     cars_map: dict[int, str] = {}
     if not os.path.isfile(CARS_CSV_FILENAME):
         logging.info("Could not find file %s" % CARS_CSV_FILENAME)
         _cars_map_cache = cars_map
+        _cars_map_cache_filename = CARS_CSV_FILENAME
         return _cars_map_cache
 
     with open(CARS_CSV_FILENAME, 'r') as csv_file:
@@ -651,6 +663,7 @@ def _get_cars_map() -> dict[int, str]:
                 cars_map[int(row[0])] = row[1]
 
     _cars_map_cache = cars_map
+    _cars_map_cache_filename = CARS_CSV_FILENAME
     return _cars_map_cache
 
 
