@@ -425,7 +425,7 @@ def get_best_lap(laps: List[Lap]):
     if len(laps) == 0:
         return None
 
-    return sorted(laps, key=lambda x: x.lap_finish_time, reverse=False)[0]
+    return min(laps, key=lambda x: x.lap_finish_time)
 
 
 def get_median_lap(laps: List[Lap]) -> Lap:
@@ -500,8 +500,8 @@ def filter_max_min_laps(laps: List[Lap], max_lap_time=-1, min_lap_time=-1) -> Li
 def pd_data_frame_from_lap(
         laps: List[Lap], best_lap_time: int
 ) -> pd.DataFrame:
-    df = pd.DataFrame()
-    for i, lap in enumerate(laps):
+    rows = []
+    for lap in laps:
         time_diff = ""
         info = ""
 
@@ -521,56 +521,41 @@ def pd_data_frame_from_lap(
                 -1 * (best_lap_time / 1000 - lap.lap_finish_time / 1000)
             )
 
-        df_add = pd.DataFrame(
-            [
-                {
-                    "number": lap.number,
-                    "time": seconds_to_lap_time(lap.lap_finish_time / 1000),
-                    "diff": time_diff,
-                    "timestamp": lap.lap_start_timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-                    "info": info,
-                    "car_name": car_name(lap),
-                    "fuelconsumed": "%d" % lap.fuel_consumed,
-                    "fullthrottle": "%d"
-                                    % (lap.full_throttle_ticks / lap.lap_ticks * 1000),
-                    "throttleandbreak": "%d"
-                                        % (lap.throttle_and_brake_ticks / lap.lap_ticks * 1000),
-                    "fullbreak": "%d" % (lap.full_brake_ticks / lap.lap_ticks * 1000),
-                    "nothrottle": "%d"
-                                  % (lap.no_throttle_and_no_brake_ticks / lap.lap_ticks * 1000),
-                    "tyrespinning": "%d"
-                                    % (lap.tires_spinning_ticks / lap.lap_ticks * 1000),
-                }
-            ],
-            index=[i],
+        rows.append(
+            {
+                "number": lap.number,
+                "time": seconds_to_lap_time(lap.lap_finish_time / 1000),
+                "diff": time_diff,
+                "timestamp": lap.lap_start_timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                "info": info,
+                "car_name": car_name(lap),
+                "fuelconsumed": "%d" % lap.fuel_consumed,
+                "fullthrottle": "%d"
+                                % (lap.full_throttle_ticks / lap.lap_ticks * 1000),
+                "throttleandbreak": "%d"
+                                    % (lap.throttle_and_brake_ticks / lap.lap_ticks * 1000),
+                "fullbreak": "%d" % (lap.full_brake_ticks / lap.lap_ticks * 1000),
+                "nothrottle": "%d"
+                              % (lap.no_throttle_and_no_brake_ticks / lap.lap_ticks * 1000),
+                "tyrespinning": "%d"
+                                % (lap.tires_spinning_ticks / lap.lap_ticks * 1000),
+            }
         )
-        df = pd.concat([df, df_add])
 
-    return df
+    return pd.DataFrame(rows)
 
 
 def pd_data_frame_from_debug_data(
         gt7data: GTData
 ) -> pd.DataFrame:
-    df = pd.DataFrame()
+    rows = []
     for name in GTData.get_attributes():
         value = getattr(gt7data, name)
         if value is None:
             continue
-        df_add = pd.DataFrame(
-            [
-                {
-                    "name": name,
-                    "value": value
-                }
-            ],
-        )
-        if df.empty:
-            df = df_add.copy()
-        elif not df_add.empty:
-            df = pd.concat([df, df_add])
+        rows.append({"name": name, "value": value})
 
-    return df
+    return pd.DataFrame(rows)
 
 
 RACE_LINE_BRAKING_MODE = "RACE_LINE_BRAKING_MODE"
@@ -624,21 +609,49 @@ def get_race_line_coordinates_when_mode_is_active(lap: Lap, mode: str):
 CARS_CSV_FILENAME = "db/cars.csv"
 TRACKS_CSV_FILENAME = "db/course.csv"
 
+_tracks_cache: List[Tuple[int, str]] | None = None
+_cars_map_cache: dict[int, str] | None = None
+
 def get_track_list() -> List[Tuple[int, str]]:
-    tracks = []
-    # check if file exists
+    global _tracks_cache
+    if _tracks_cache is not None:
+        return _tracks_cache
+
+    tracks: List[Tuple[int, str]] = []
     if not os.path.isfile(TRACKS_CSV_FILENAME):
         logging.info("Could not find file %s" % TRACKS_CSV_FILENAME)
-        return tracks
+        _tracks_cache = tracks
+        return _tracks_cache
 
-    # read csv from file
     with open(TRACKS_CSV_FILENAME, 'r') as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         for row in csv_reader:
             if row[0].isdigit():
-                tracks.append((int(row[0]),row[1]))
+                tracks.append((int(row[0]), row[1]))
 
-    return tracks
+    _tracks_cache = tracks
+    return _tracks_cache
+
+
+def _get_cars_map() -> dict[int, str]:
+    global _cars_map_cache
+    if _cars_map_cache is not None:
+        return _cars_map_cache
+
+    cars_map: dict[int, str] = {}
+    if not os.path.isfile(CARS_CSV_FILENAME):
+        logging.info("Could not find file %s" % CARS_CSV_FILENAME)
+        _cars_map_cache = cars_map
+        return _cars_map_cache
+
+    with open(CARS_CSV_FILENAME, 'r') as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        for row in csv_reader:
+            if row[0].isdigit():
+                cars_map[int(row[0])] = row[1]
+
+    _cars_map_cache = cars_map
+    return _cars_map_cache
 
 
 def get_car_name_for_car_id(car_id: int) -> str:
@@ -646,33 +659,10 @@ def get_car_name_for_car_id(car_id: int) -> str:
     if not isinstance(car_id, int):
         raise ValueError("car_id must be an integer")
 
-    # check if file exists
-    if not os.path.isfile(CARS_CSV_FILENAME):
-        logging.info("Could not find file %s" % CARS_CSV_FILENAME)
-        return "CAR-ID-%d" % car_id
-
-    # read csv from file
-    with open(CARS_CSV_FILENAME, 'r') as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
-        for row in csv_reader:
-            if row[0] == str(car_id):
-                return row[1]
-
-    return "CAR-ID-%d" % car_id
+    return _get_cars_map().get(car_id, "CAR-ID-%d" % car_id)
 
 def get_car_name_list() -> List[Tuple[int, str]]:
-    cars = []
-    # check if file exists
-    if not os.path.isfile(CARS_CSV_FILENAME):
-        logging.info("Could not find file %s" % CARS_CSV_FILENAME)
-
-    # read csv from file
-    with open(CARS_CSV_FILENAME, 'r') as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
-        for row in csv_reader:
-            if row[0].isdigit():
-                cars.append((int(row[0]),row[1]))
-    return cars
+    return list(_get_cars_map().items())
 
 
 def bokeh_tuple_for_list_of_lapfiles(lapfiles: List[LapFile]):

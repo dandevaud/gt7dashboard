@@ -197,6 +197,7 @@ class RaceDiagram(object):
         self.gears_lines = []
         self.boost_lines = []
         self.yaw_rate_lines = []
+        self.g_force_lines = []
         self.braking_throttle_lines = []
 
         # Data Sources
@@ -256,7 +257,7 @@ class RaceDiagram(object):
             x_range=self.f_speed.x_range,
             y_range=Range1d(0, 50),
             width=width,
-            height=int(self.f_speed.height / 4),
+            height=int(self.f_speed.height),
             tooltips=self.tooltips_speed_variance,
             active_drag="box_zoom",
         )
@@ -363,6 +364,19 @@ class RaceDiagram(object):
             active_drag="box_zoom",
         )
 
+        self.f_g_force_circle = figure(
+            y_axis_label="Lat. G",
+            x_axis_label="Lon. G",
+            y_range=Range1d(-3, 3),
+            x_range=Range1d(-3, 3),
+            width=width,
+            height=width,
+            tooltips=[("Lat. G", "@sway{0.00}"), ("Lon. G", "@surge{0.00}")],
+            active_drag="box_zoom",
+            match_aspect=True,
+            title="G-Force Circle",
+        )
+
         self.f_speed.toolbar.autohide = True
 
         span_zero_time_diff = bokeh.models.Span(
@@ -402,6 +416,8 @@ class RaceDiagram(object):
 
         self.f_yaw_rate.xaxis.visible = False
         self.f_yaw_rate.toolbar.autohide = True
+
+        self.f_g_force_circle.toolbar.autohide = True
 
         self.source_time_diff = ColumnDataSource(data={"distance": [], "timedelta": []})
         self.f_time_diff.line(
@@ -479,8 +495,9 @@ class RaceDiagram(object):
         self.f_speed_variance.min_border_left = min_border_left
         self.f_boost.min_border_left = min_border_left
         self.f_yaw_rate.min_border_left = min_border_left
+        self.f_g_force_circle.min_border_left = min_border_left
 
-        self.layout = layout(self.f_time_diff, self.f_speed, self.f_speed_variance, self.f_throttle, self.f_yaw_rate, self.f_braking, self.f_coasting, self.f_tires, self.f_gear, self.f_rpm, self.f_boost)
+        self.layout = layout(self.f_time_diff, self.f_speed, self.f_speed_variance, self.f_throttle, self.f_yaw_rate, self.f_g_force_circle, self.f_braking, self.f_coasting, self.f_tires, self.f_gear, self.f_rpm, self.f_boost)
 
         self.source_speed_variance = ColumnDataSource(data={"distance": [], "speed_variance": []})
 
@@ -669,6 +686,28 @@ class RaceDiagram(object):
             visible=visible
         ))
 
+        self.g_force_lines.append(self.f_g_force_circle.line(
+            x="surge",
+            y="sway",
+            source=source,
+            legend_label=legend,
+            line_width=1,
+            color=color,
+            line_alpha=1,
+            visible=visible
+        ))
+        self.g_force_lines.append(self.f_g_force_circle.scatter(
+            x="surge",
+            y="sway",
+            source=source,
+            size=3,
+            color=color,
+            fill_alpha=0.4,
+            line_alpha=0,
+            visible=visible
+        ))
+        self.f_g_force_circle.legend.visible = False
+
         return source
 
     def get_layout(self) -> Column:
@@ -687,6 +726,7 @@ class RaceDiagram(object):
                 self.f_tires.renderers.remove(self.f_tires.renderers[i])  # remove the line renderer
                 self.f_boost.renderers.remove(self.f_boost.renderers[i])  # remove the line renderer
                 self.f_yaw_rate.renderers.remove(self.f_yaw_rate.renderers[i])  # remove the line renderer
+                self.f_g_force_circle.renderers.remove(self.f_g_force_circle.renderers[i])  # remove the line renderer
                 # self.f_time_diff.renderers.remove(self.f_time_diff.renderers[i])  # remove the line renderer
 
                 self.f_speed.legend.items.pop(i)

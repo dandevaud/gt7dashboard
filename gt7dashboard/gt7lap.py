@@ -21,6 +21,8 @@ FLOAT_DATA_ATTRIBUTES = (
     "data_boost",
     "data_rotation_yaw",
     "data_absolute_yaw_rate_per_second",
+    "data_g_force_lat",
+    "data_g_force_lon",
 )
 INT_DATA_ATTRIBUTES = (
     "data_gear",

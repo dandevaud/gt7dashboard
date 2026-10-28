@@ -8,6 +8,7 @@ import struct
 
 class GTData:
     date_time = None
+    packet_size = 0
     package_id = 0
     best_lap = 0
     last_lap = 0
@@ -118,6 +119,7 @@ class GTData:
             return
 
         self.date_time = datetime.datetime.now()
+        self.packet_size = len(ddata)
         self.package_id = struct.unpack('i', ddata[0x70:0x70 + 4])[0]
         self.best_lap = struct.unpack('i', ddata[0x78:0x78 + 4])[0]
         self.last_lap = struct.unpack('i', ddata[0x7C:0x7C + 4])[0]

@@ -66,6 +66,7 @@ The thinner line of the two is your last lap. The reference line is the thicker 
 """
 
 YAW_RATE_DIAGRAM = """This is the yaw rate per second of your car. Use this to determine the Maximum Rotation Point (MRP). At this point you should normally accelerate."""
+GFORCE_DIAGRAM = """This is a g-force circle for the whole lap. The horizontal axis is longitudinal g (surge: acceleration/braking), and the vertical axis is lateral g (sway: cornering). Use this to judge combined grip usage and balance."""
 
 
 def get_help_div(help_text_resource):

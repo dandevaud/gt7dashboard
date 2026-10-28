@@ -40,14 +40,16 @@ class Session():
         return other is not None and self.best_lap == other.best_lap and self.min_body_height == other.min_body_height and self.max_speed == other.max_speed
 
 def get_heartbeat_check_mode_from_environment() -> HeartbeatCheckMode:
-    s = os.environ.get("GT7_HEART_BEAT_MODE", 'A').upper()
+    raw = os.environ.get("GT7_HEART_BEAT_MODE", 'A')
+    s = str(raw).strip().strip('"\'').upper()
     if s == 'A':
         return HeartbeatCheckMode.A
     elif s == 'B':
         return HeartbeatCheckMode.B
-    elif s == '~':
+    elif s == '~' or s == 'TILDE':
         return HeartbeatCheckMode.Tilde
     else:
+        print(f"[GT7 debug] Invalid GT7_HEART_BEAT_MODE='{raw}', falling back to 'A'.")
         return HeartbeatCheckMode.A
 
 class GT7Communication(Thread):
@@ -67,6 +69,8 @@ class GT7Communication(Thread):
         self.send_port = 33739
         self.receive_port = 33740
         self._last_time_data_received = 0
+        self._debug_gforce = os.environ.get("GT7_DEBUG_GFORCE", "false").lower() in ("1", "true", "yes", "on")
+        self._last_gforce_debug_log_time = 0.0
 
         self.current_lap = Lap()
         self.session = Session()
@@ -246,6 +250,21 @@ class GT7Communication(Thread):
         self.current_lap.data_position_x.append(data.position_x)
         self.current_lap.data_position_y.append(data.position_y)
         self.current_lap.data_position_z.append(data.position_z)
+
+        # Log g-force components (sway=lateral, surge=longitudinal), converted to g units
+        self.current_lap.data_g_force_lat.append(data.sway / 9.81)
+        self.current_lap.data_g_force_lon.append(data.surge / 9.81)
+
+        if self._debug_gforce:
+            now = time.time()
+            if now - self._last_gforce_debug_log_time >= 1.0:
+                self._last_gforce_debug_log_time = now
+                print(
+                    "[GT7 debug] "
+                    f"hb={self._heartbeat_check_mode.value} "
+                    f"packet_len=0x{data.packet_size:X}({data.packet_size}) "
+                    f"sway={data.sway:.4f} heave={data.heave:.4f} surge={data.surge:.4f}"
+                )
 
         ## Log Boost
 

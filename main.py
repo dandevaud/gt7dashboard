@@ -1,4 +1,5 @@
 import copy
+import importlib
 import itertools
 import logging
 import os
@@ -7,7 +8,7 @@ from typing import List
 
 import bokeh.application
 from bokeh.driving import linear
-from bokeh.layouts import layout
+from bokeh.layouts import layout, column
 from bokeh.models import (
     Select,
     Paragraph,
@@ -31,7 +32,10 @@ from gt7dashboard.gt7helper import (
 from gt7dashboard.gt7lap import Lap
 from gt7dashboard.gt7laphelper import car_name, get_data_dict
 from gt7dashboard.s3helper import S3Client
-from tracks.gt7trackpage import track_clustering_tab
+import tracks.gt7trackpage as gt7trackpage
+
+gt7trackpage = importlib.reload(gt7trackpage)
+track_clustering_tab = gt7trackpage.track_clustering_tab
 
 # set logging level to debug
 logger = logging.getLogger('main.py')
@@ -45,6 +49,9 @@ def update_connection_info():
         div_connection_info.text += "<p title='Connected'>🟢</p>"
     else:
         div_connection_info.text += "<p title='Disconnected'>🔴</p>"
+
+    if 'debug_connection_info' in globals():
+        debug_connection_info.text = div_connection_info.text
 
 
 def update_reference_lap_select(laps):
@@ -200,6 +207,9 @@ def update_realtime_data():
        
 
 def update_speed_velocity_graph(laps: List[Lap]):
+    global last_lap_brake_points_source
+    global reference_lap_brake_points_source
+
     last_lap, reference_lap, median_lap = gt7helper.get_last_reference_median_lap(
         laps, reference_lap_selected=g_reference_lap_selected
     )
@@ -233,23 +243,19 @@ def update_speed_velocity_graph(laps: List[Lap]):
     brake_points_enabled = os.environ.get("GT7_ADD_BRAKEPOINTS") == "true"
 
     if brake_points_enabled and len(last_lap.data_braking) > 0:
-        update_break_points(last_lap, s_race_line, "blue")
+        update_break_points(last_lap, last_lap_brake_points_source)
+    else:
+        last_lap_brake_points_source.data = {"x": [], "y": []}
 
     if brake_points_enabled and len(reference_lap.data_braking) > 0:
-        update_break_points(reference_lap, s_race_line, "magenta")
+        update_break_points(reference_lap, reference_lap_brake_points_source)
+    else:
+        reference_lap_brake_points_source.data = {"x": [], "y": []}
 
 
-def update_break_points(lap: Lap, race_line: figure, color: str):
+def update_break_points(lap: Lap, brake_points_source: ColumnDataSource):
     brake_points_x, brake_points_y = gt7helper.get_brake_points(lap)
-
-    for i, _ in enumerate(brake_points_x):
-        race_line.scatter(
-            brake_points_x[i],
-            brake_points_y[i],
-            marker="circle",
-            size=10,
-            fill_color=color,
-        )
+    brake_points_source.data = {"x": brake_points_x, "y": brake_points_y}
 
 
 def update_time_table(laps: List[Lap]):
@@ -403,6 +409,9 @@ race_time_table = gt7diagrams.RaceTimeTable()
 debug_table = gt7diagrams.DebugTable()
 colors = itertools.cycle(palette)
 
+race_diagram.f_g_force_circle.width = race_line_width
+race_diagram.f_g_force_circle.height = race_line_width
+
 def table_row_selection_callback(attrname, old, new):
     global g_laps_stored
     global race_diagram
@@ -467,6 +476,29 @@ reference_lap_race_line = s_race_line.line(
     source=ColumnDataSource(data={"raceline_x": [], "raceline_z": []})
 )
 
+last_lap_brake_points_source = ColumnDataSource(data={"x": [], "y": []})
+reference_lap_brake_points_source = ColumnDataSource(data={"x": [], "y": []})
+
+s_race_line.scatter(
+    x="x",
+    y="y",
+    marker="circle",
+    size=10,
+    fill_color="blue",
+    line_color="blue",
+    source=last_lap_brake_points_source,
+)
+
+s_race_line.scatter(
+    x="x",
+    y="y",
+    marker="circle",
+    size=10,
+    fill_color="magenta",
+    line_color="magenta",
+    source=reference_lap_brake_points_source,
+)
+
 select_title = Paragraph(text="Load Laps:", align="center")
 select = Select(value="laps", options=stored_lap_files)
 select.on_change("value", load_laps_handler)
@@ -491,6 +523,7 @@ div_speed_peak_valley_diagram = Div(width=200, height=125)
 div_gt7_dashboard = Div(width=120, height=30)
 div_header_line = Div(width=400, height=30)
 div_connection_info = Div(width=30, height=30)
+debug_connection_info = Div(width=30, height=30)
 div_deviance_laps_on_display = Div(width=200, height=race_diagram.f_speed_variance.height)
 
 div_fuel_map = Div(width=200, height=125, css_classes=["fuel_map"])
@@ -508,8 +541,18 @@ l1 = layout(
     children=[
         [get_help_div(gt7help.HEADER), div_connection_info, div_gt7_dashboard, div_header_line, reset_button, save_button, select_title, select, get_help_div(gt7help.LAP_CONTROLS)],
         [get_help_div(gt7help.TIME_DIFF), race_diagram.f_time_diff, layout(children=[manual_log_button, checkbox_group, reference_lap_select]), get_help_div(gt7help.MANUAL_CONTROLS)],
-        [get_help_div(gt7help.SPEED_DIAGRAM), race_diagram.f_speed, s_race_line, get_help_div(gt7help.RACE_LINE_MINI)],
-        [get_help_div(gt7help.SPEED_VARIANCE), race_diagram.f_speed_variance, div_deviance_laps_on_display, get_help_div(gt7help.SPEED_VARIANCE)],
+        [
+            get_help_div(gt7help.SPEED_DIAGRAM),
+            race_diagram.f_speed,
+            s_race_line,
+            get_help_div(gt7help.RACE_LINE_MINI),
+        ],
+        [
+            get_help_div(gt7help.SPEED_VARIANCE),
+            race_diagram.f_speed_variance,
+            race_diagram.f_g_force_circle,
+            column(div_deviance_laps_on_display, get_help_div(gt7help.GFORCE_DIAGRAM), get_help_div(gt7help.SPEED_VARIANCE)),
+        ],
         [get_help_div(gt7help.THROTTLE_DIAGRAM), race_diagram.f_throttle, div_speed_peak_valley_diagram, get_help_div(gt7help.SPEED_PEAKS_AND_VALLEYS)],
         [get_help_div(gt7help.YAW_RATE_DIAGRAM), race_diagram.f_yaw_rate],
         [get_help_div(gt7help.BRAKING_DIAGRAM), race_diagram.f_braking],
@@ -528,10 +571,7 @@ l1 = layout(
 l2, race_lines, race_lines_data = get_race_lines_layout(number_of_race_lines=1)
 
 l3 = layout(
-    [
-        [reset_button, save_button],
-        [div_speed_peak_valley_diagram, div_fuel_map], # TODO Race table does not render twice, one rendering will be empty
-     ],
+    [Div(text="Race tab uses controls on 'Get Faster' to avoid duplicate widget ownership.")],
     sizing_mode="inherit", 
 )
 
@@ -542,7 +582,7 @@ l4 = layout(
 
 t1 = layout(
     children=[
-        [div_connection_info, race_diagram.select_debug_info_columns],
+        [debug_connection_info, race_diagram.select_debug_info_columns],
         race_diagram.f_debug_info,
 
     ]
